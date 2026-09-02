@@ -19,7 +19,10 @@
     "test:identity-browser": "node tests/browser/ap02.mjs",
     "test:local-mind-browser": "node tests/browser/ap03.mjs",
     "test:local-mind": "node --test packages/local-mind/test/*.test.js",
-    "test:unit": "npm run test:identity && npm run test:local-mind",
+    "test:memory": "node --test packages/memory-graph/test/*.test.js",
+    "test:memory-browser": "node tests/browser/ap17.mjs",
+    "test:memory-scenarios": "node tests/memory/ap17.mjs",
+    "test:unit": "npm run test:identity && npm run test:local-mind && npm run test:memory",
     "test:world-core-wasm": "npm run build:wasm && node tests/wasm/ap04.mjs"
   },
   "engines": {

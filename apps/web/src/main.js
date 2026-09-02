@@ -1,6 +1,7 @@
 import * as Phaser from "phaser";
 import { IndexedDbVaultStore, loadOrCreateIdentity } from "@echo-town/identity-vault";
 import { LocalMindClient } from "@echo-town/local-mind";
+import { IndexedDbMemoryStore, MemoryGraph } from "@echo-town/memory-graph";
 import initWorldCore, { WasmWorldCore } from "../../../crates/world-core/pkg/echo_town_world_core.js";
 import worldCoreUrl from "../../../crates/world-core/pkg/echo_town_world_core_bg.wasm?url";
 import "./styles.css";
@@ -91,12 +92,14 @@ class EchoTownScene extends Phaser.Scene {
 }
 
 async function bootstrap() {
-  const [identity, manifest] = await Promise.all([
+  const memoryStore = new IndexedDbMemoryStore();
+  const [identity, manifest, memorySnapshot] = await Promise.all([
     loadOrCreateIdentity(new IndexedDbVaultStore()),
     fetch("./version-manifest.json").then((response) => {
       if (!response.ok) throw new Error("版本清单不可用");
       return response.json();
     }),
+    memoryStore.get(),
   ]);
   document.querySelector("#actor-name").textContent = identity.profile.name;
   document.querySelector("#actor-id").textContent = identity.actorId.slice(0, 18);
@@ -111,6 +114,26 @@ async function bootstrap() {
     actors: [{ actorId: identity.actorId, publicKeyHex, x: 0, y: 0 }],
   }));
   const localMind = new LocalMindClient();
+  const memoryGraph = new MemoryGraph(memorySnapshot || undefined);
+  if (!memorySnapshot) {
+    memoryGraph.remember({
+      id: `identity-${identity.actorId}`,
+      ownerActorId: identity.actorId,
+      kind: "identity",
+      summary: `${identity.profile.name} 在回声镇醒来。`,
+      sourceEventIds: [`identity-created-${identity.actorId}`],
+      subjects: [identity.actorId],
+      logicalTime: 0,
+      salience: 100,
+      emotionalValence: 0,
+      confidence: 100,
+      visibility: "private",
+      consolidationParentIds: [],
+      decayClass: "protected",
+    });
+    memoryGraph.consolidate(0);
+    await memoryStore.set(memoryGraph.snapshot());
+  }
   const localMindStatus = await localMind.status();
   const firstDecision = await localMind.decide({
     actorId: identity.actorId,
@@ -123,7 +146,7 @@ async function bootstrap() {
     needs: [{ kind: "social", level: 62 }],
     visibleEvents: [],
   });
-  document.querySelector("#mind-status").textContent = `角色心智：${localMindStatus.mode} · ${localMindStatus.execution}`;
+  document.querySelector("#mind-status").textContent = `角色心智：${localMindStatus.mode} · ${localMindStatus.execution} · ${memoryGraph.allMemories().length} 条有来源记忆`;
   document.querySelector("#runtime-status").textContent = `本地身份、AI Worker 与 Wasm 核心就绪 · ${manifest.version} · ${manifest.assets.length} 项静态资源`;
 
   const game = new Phaser.Game({
@@ -136,7 +159,7 @@ async function bootstrap() {
     render: { antialias: false, pixelArt: true },
     scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
   });
-  window.__echoTownReady = { identity, manifest, game, worldCore, localMind, firstDecision, stateHash: worldCore.state_hash() };
+  window.__echoTownReady = { identity, manifest, game, worldCore, localMind, firstDecision, memoryGraph, memoryStore, stateHash: worldCore.state_hash() };
 }
 
 bootstrap().catch((error) => {

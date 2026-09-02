@@ -45,7 +45,10 @@ try {
   await page.waitForFunction(() => Boolean(window.__echoTownReady));
   const initial = await page.evaluate(() => window.__echoTown.position());
   await page.evaluate(() => window.__echoTown.moveTo(156, 116));
-  await page.waitForTimeout(1500);
+  await page.waitForFunction(() => {
+    const position = window.__echoTown.position();
+    return Math.hypot(position.x - 156, position.y - 116) < 80;
+  });
   const moved = await page.evaluate(() => window.__echoTown.position());
   assert.ok(Math.hypot(moved.x - initial.x, moved.y - initial.y) > 100, "角色应当移动");
   const interaction = await page.evaluate(() => window.__echoTown.interact());
