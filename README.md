@@ -22,6 +22,7 @@ Echo Town 是一个浏览器本地运行的 2D AI 虚拟小镇。角色拥有稳
 - 有来源的工作/长期记忆、追加纠正、不可普通遗忘事实，以及与公共相识分离的私人非对称关系视图。
 - 12 个冻结人格与可解释 Persona Core；人格、价值、需要和心境会改变 Intent 排序，核心特质只会有边界地缓慢成长。
 - 四维 Capability 状态会显式呈现规则 AI、离线单人、世界暂停或仅当前会话等降级，不把缺失能力伪装成就绪。
+- 产品级 World Sync 候选使用版本化的第三方公共节点清单、Nostr/WebTorrent 双信令策略和 WebRTC DataChannel；同步批次由居民 Ed25519 身份签名，严格检查 epoch/sequence、防重放和状态哈希链，排他事件还必须携带 2/3 签名 authority lease。项目不提供 TURN 或节点 SLA，直连失败仍显式保持离线单人。
 - 首次在线加载后，Service Worker 缓存版本化静态制品；断网重开仍可进入同一角色、记忆和离线单人世界。
 - 世界内容使用声明式 ContentPack v1、InitialStatePack v1 与 SituationSeed v1；本地编译器拒绝角色槽位、剧情阶段、预期结果、结局、远程脚本、HTML、可执行文件、缺失署名与超预算资产，并生成确定性内容清单。
 - Public Discourse 只从真实 Event 追加观点，保留来源、受众、转述和反驳；热度不是真值。HistoricalSummary 只能事后读取 Event，Planner exact-key 白名单拒绝摘要回灌。
@@ -60,6 +61,9 @@ npm run test:persona-scenarios
 npm run test:capability-scenarios
 npm run test:society-scenarios
 npm run test:society-browser
+npm run test:world-sync
+npm run test:serverless
+npm run test:world-sync-browser
 npm run ci:workflow
 npm run ci:world-schema
 npm run ci:asset-budget
@@ -74,6 +78,8 @@ SOURCE_COMMIT=$(git rev-parse HEAD) npm run test:pages-browser
 ```
 
 `npm run build` 会先生成 Rust/WebAssembly 核心，再构建完全静态的浏览器制品和版本清单。浏览器测试通过本地静态预览访问交付制品，不依赖应用服务器或云模型。
+
+`npm run test:world-sync-browser` 会用随机房间和两个隔离浏览器对第三方公共 Nostr relay、WebTorrent tracker 与真实 WebRTC 直连做一次低负载黑盒。公共节点没有项目可控 SLA；测试失败时产品必须显示离线状态，不得通过部署项目节点补洞。
 
 ## 参与贡献
 

@@ -49,7 +49,7 @@ export function canonicalJson(value) {
   return JSON.stringify(canonical(value));
 }
 
-async function actorIdFromPublicKey(publicKey, cryptoApi = globalThis.crypto) {
+export async function actorIdFromPublicKey(publicKey, cryptoApi = globalThis.crypto) {
   const digest = await cryptoApi.subtle.digest("SHA-256", publicKey);
   return `echo_${Array.from(new Uint8Array(digest).slice(0, 16), (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
 }
@@ -97,6 +97,17 @@ export async function verify(identity, payload, signature, cryptoApi = globalThi
     ["verify"],
   );
   return cryptoApi.subtle.verify("Ed25519", publicKey, base64ToBytes(signature), encoder.encode(canonicalJson(payload)));
+}
+
+export async function verifyPublicSignature(publicKey, payload, signature, cryptoApi = globalThis.crypto) {
+  const imported = await cryptoApi.subtle.importKey(
+    "spki",
+    base64ToBytes(publicKey),
+    { name: "Ed25519" },
+    false,
+    ["verify"],
+  );
+  return cryptoApi.subtle.verify("Ed25519", imported, base64ToBytes(signature), encoder.encode(canonicalJson(payload)));
 }
 
 export class MemoryVaultStore {

@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "policy": {
+    "projectOperatedNodes": false,
+    "serverAuthority": false,
+    "privatePayloadsAllowed": false,
+    "directFailure": "explicit_offline"
+  },
+  "strategies": [
+    {
+      "id": "nostr-primary",
+      "protocol": "nostr",
+      "role": "primary",
+      "endpoints": [
+        { "id": "nostr-purple", "operator": "Purple Relay", "url": "wss://purplerelay.com", "source": "https://github.com/dmotz/trystero" },
+        { "id": "nostr-testrelay", "operator": "TestRelay", "url": "wss://top.testrelay.top", "source": "https://github.com/dmotz/trystero" },
+        { "id": "nostr-edufeed", "operator": "Edufeed", "url": "wss://relay-rpi.edufeed.org", "source": "https://github.com/dmotz/trystero" },
+        { "id": "nostr-yabu", "operator": "Yabu", "url": "wss://staging.yabu.me", "source": "https://github.com/dmotz/trystero" },
+        { "id": "nostr-amanah", "operator": "Amanah", "url": "wss://social.amanah.eblessing.co", "source": "https://github.com/dmotz/trystero" }
+      ]
+    },
+    {
+      "id": "webtorrent-backup",
+      "protocol": "webtorrent",
+      "role": "backup",
+      "endpoints": [
+        { "id": "tracker-openwebtorrent", "operator": "OpenWebTorrent", "url": "wss://tracker.openwebtorrent.com", "source": "https://github.com/webtorrent/bittorrent-tracker" },
+        { "id": "tracker-webtorrent", "operator": "WebTorrent", "url": "wss://tracker.webtorrent.dev", "source": "https://github.com/webtorrent/create-torrent" }
+      ]
+    }
+  ]
+}

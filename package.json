@@ -56,7 +56,10 @@
     "test:public-discourse": "node --test packages/public-discourse/test/*.test.js",
     "test:society-scenarios": "node tests/society/ap21.mjs",
     "test:society-browser": "node tests/browser/ap21.mjs",
-    "test:unit": "npm run test:identity && npm run test:local-mind && npm run test:memory && npm run test:persona && npm run test:capability && npm run test:offline && npm run test:privacy-network && npm run test:public-discourse && npm run test:companion && npm run test:engagement && npm run test:fiction-boundary && npm run test:mystery && npm run test:latent-zone",
+    "test:unit": "npm run test:identity && npm run test:local-mind && npm run test:memory && npm run test:persona && npm run test:capability && npm run test:offline && npm run test:privacy-network && npm run test:public-discourse && npm run test:companion && npm run test:engagement && npm run test:fiction-boundary && npm run test:mystery && npm run test:latent-zone && npm run test:world-sync",
+    "test:world-sync": "node --test packages/world-sync/test/*.test.js",
+    "test:world-sync-browser": "node tests/browser/ap05.mjs",
+    "test:serverless": "node scripts/verify-serverless.mjs",
     "test:world-core-wasm": "npm run build:wasm && node tests/wasm/ap04.mjs"
   },
   "engines": {

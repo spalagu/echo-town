@@ -9,8 +9,10 @@ import { IndexedDbMemoryStore, MemoryGraph } from "@echo-town/memory-graph";
 import { simulateMystery } from "@echo-town/mystery-fabric";
 import { IndexedDbOfflineStore, OfflineActivityQueue, registerOfflineWorker } from "@echo-town/offline-runtime";
 import { DILEMMA_FIXTURES, PERSONA_FIXTURES } from "@echo-town/persona-core";
-import { PrivacyNetworkGate, PUBLIC_WIRE_FIELD_PATHS } from "@echo-town/privacy-network";
+import { createPublicActivityEnvelope, PrivacyNetworkGate, PUBLIC_WIRE_FIELD_PATHS } from "@echo-town/privacy-network";
 import { simulateSociety, validateSimulationResult } from "@echo-town/public-discourse";
+import { IndexedDbWorldSyncStore, PublicWorldSyncSession, validatePublicNodeRegistry, WorldSyncReplica } from "@echo-town/world-sync";
+import { openPublicRendezvous } from "@echo-town/world-sync/trystero";
 import initWorldCore, { WasmWorldCore } from "../../../crates/world-core/pkg/echo_town_world_core.js";
 import worldCoreUrl from "../../../crates/world-core/pkg/echo_town_world_core_bg.wasm?url";
 import "./styles.css";
@@ -338,7 +340,8 @@ async function bootstrap() {
   const memoryStore = new IndexedDbMemoryStore();
   const offlineStore = new IndexedDbOfflineStore();
   const companionStore = new IndexedDbCompanionStore();
-  const [identity, manifest, worldContent, memorySnapshot, offlineSnapshot, companionSnapshot, offlineWorker] = await Promise.all([
+  const worldSyncStore = new IndexedDbWorldSyncStore();
+  const [identity, manifest, worldContent, publicNodes, memorySnapshot, offlineSnapshot, companionSnapshot, worldSyncSnapshot, offlineWorker] = await Promise.all([
     loadOrCreateIdentity(new IndexedDbVaultStore()),
     fetch("./version-manifest.json").then((response) => {
       if (!response.ok) throw new Error("版本清单不可用");
@@ -348,9 +351,14 @@ async function bootstrap() {
       if (!response.ok) throw new Error("世界内容清单不可用");
       return response.json();
     }),
+    fetch("./public-nodes.json").then((response) => {
+      if (!response.ok) throw new Error("公共节点清单不可用");
+      return response.json();
+    }).then(validatePublicNodeRegistry),
     memoryStore.get(),
     offlineStore.get(),
     companionStore.get(),
+    worldSyncStore.get(),
     registerOfflineWorker(),
   ]);
   applyWorldContent(worldContent);
@@ -437,6 +445,44 @@ async function bootstrap() {
   const memoryGraph = new MemoryGraph(memorySnapshot || undefined);
   const offlineQueue = new OfflineActivityQueue(offlineSnapshot || undefined);
   const privacyNetwork = new PrivacyNetworkGate({ endpoint: "./__echo-town-sync" });
+  const worldSyncReplica = new WorldSyncReplica({
+    worldId: "echo-town-local",
+    zoneId: "center",
+    initialStateHash: worldContent.contentHash,
+    committee: [identity.actorId],
+    snapshot: worldSyncSnapshot,
+  });
+  const syncRoom = new URLSearchParams(location.search).get("syncRoom") || "echo-town-public-v1";
+  const worldSync = new PublicWorldSyncSession({
+    identity,
+    registry: publicNodes,
+    replica: worldSyncReplica,
+    roomId: syncRoom,
+    openTransport: openPublicRendezvous,
+    onSnapshot: (snapshot) => worldSyncStore.set(snapshot),
+    onStatus: (status) => {
+      const connected = status.strategies.some((strategy) => strategy.peerCount > 0) && status.received.length > 0;
+      if (connected && capabilityController.state().network !== "ready") {
+        capabilityController.reportRecovery("network", status.received.length);
+        capabilityController.reportRecovery("network", status.received.length + 1);
+      } else if (!connected && capabilityController.state().network === "ready") {
+        capabilityController.injectFault("network_partition", status.received.length + 1);
+      }
+    },
+  });
+  const connectWorldSync = async () => {
+    await worldSync.start();
+    return worldSync.status();
+  };
+  const prepareWorldSyncResync = () => offlineQueue.prepareResync().activities.map((activity) => createPublicActivityEnvelope({
+        worldId: "echo-town-local",
+        zoneId: "center",
+        senderActorId: identity.actorId,
+        messageId: `resync:${activity.id}`,
+        logicalTime: activity.logicalTime,
+        activity,
+        privateContext: {},
+      }));
   if (!memorySnapshot) {
     memoryGraph.remember({
       id: `identity-${identity.actorId}`,
@@ -508,6 +554,11 @@ async function bootstrap() {
     offlineStore,
     offlineWorker,
     privacyNetwork,
+    publicNodes,
+    worldSync,
+    worldSyncStore,
+    connectWorldSync,
+    prepareWorldSyncResync,
     privacyWireFields: PUBLIC_WIRE_FIELD_PATHS,
     firstDecision,
     personaProfile,
@@ -522,6 +573,9 @@ async function bootstrap() {
     memoryStore,
     stateHash: worldCore.state_hash(),
   };
+  if (new URLSearchParams(location.search).get("sync") === "1") {
+    connectWorldSync().catch((error) => worldSync.errors.push(error.message));
+  }
 }
 
 bootstrap().catch((error) => {

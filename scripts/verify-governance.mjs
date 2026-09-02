@@ -12,6 +12,7 @@ const requiredFiles = [
   "SECURITY.md",
   ".github/CODEOWNERS",
   ".github/workflows/pages.yml",
+  "config/public-nodes.json",
 ];
 
 const failures = [];

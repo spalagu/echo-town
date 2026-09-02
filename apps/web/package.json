@@ -21,6 +21,7 @@
     "@echo-town/persona-core": "*",
     "@echo-town/privacy-network": "*",
     "@echo-town/public-discourse": "*",
+    "@echo-town/world-sync": "*",
     "phaser": "4.0.0"
   },
   "devDependencies": {

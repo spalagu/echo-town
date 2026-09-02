@@ -29,6 +29,7 @@ jobs:
       - run: npm ci --ignore-scripts --registry=https://registry.npmjs.org
       - run: npm run ci:workflow
       - run: npm run test:unit
+      - run: npm run test:serverless
       - run: npm run test:society-scenarios
       - run: npm run test:mystery-scenarios
       - run: npm run test:latent-zone-scenarios

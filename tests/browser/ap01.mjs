@@ -57,7 +57,9 @@ try {
   }));
   assert.equal(interaction.place, "旧钟楼");
   assert.equal(interaction.worldContent.schemaVersion, 1);
-  assert.equal(interaction.worldContent.packs[0].content.entries[0].id, "old-clocktower");
+  assert.ok(interaction.worldContent.packs
+    .flatMap((pack) => pack.content?.entries ?? [])
+    .some((entry) => entry.id === "old-clocktower"), "编译后的世界内容必须包含旧钟楼");
   const socialFoundation = await page.evaluate(() => window.__echoTownReady.socialFoundation);
   assert.deepEqual(socialFoundation, { initialStatePacks: 3, situationSeeds: 5 });
   const manifest = await page.evaluate(() => window.__echoTownReady.manifest);

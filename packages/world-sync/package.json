@@ -1,0 +1,16 @@
+{
+  "name": "@echo-town/world-sync",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.js",
+    "./trystero": "./src/trystero.js"
+  },
+  "dependencies": {
+    "@echo-town/identity-vault": "*",
+    "@echo-town/privacy-network": "*",
+    "@trystero-p2p/torrent": "0.25.4",
+    "trystero": "0.25.4"
+  }
+}

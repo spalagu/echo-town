@@ -85,6 +85,21 @@ export function createPublicActivityEnvelope(input) {
   return envelope;
 }
 
+export function validatePublicActivityEnvelope(envelope) {
+  if (!exactObject(envelope, ENVELOPE_KEYS) || envelope.schemaVersion !== 1
+    || envelope.messageType !== "public_activity" || !identifier(envelope.worldId)
+    || !identifier(envelope.zoneId) || !identifier(envelope.senderActorId)
+    || !identifier(envelope.messageId) || !Number.isInteger(envelope.logicalTime) || envelope.logicalTime < 0) {
+    throw new Error("公开活动 envelope 非法");
+  }
+  const activity = validatePendingActivity(envelope.activity);
+  if (activity.actorId !== envelope.senderActorId || activity.logicalTime !== envelope.logicalTime
+    || JSON.stringify(enumerateWireFieldPaths(envelope)) !== JSON.stringify(PUBLIC_WIRE_FIELD_PATHS)) {
+    throw new Error("公开活动 envelope 身份、时间或字段非法");
+  }
+  return structuredClone(envelope);
+}
+
 export class PrivacyNetworkGate {
   constructor({ endpoint = "./__echo-town-sync", fetchImpl = (...args) => globalThis.fetch(...args), baseUrl = globalThis.location?.href } = {}) {
     if (typeof fetchImpl !== "function") throw new Error("网络 transport 不可用");
