@@ -47,6 +47,7 @@ try {
         id: dilemma.id,
         strategies: new Set(decisions.map((decision) => decision.candidates[0].strategyId)).size,
         reasonsHaveFactors: decisions.every((decision) => decision.candidates.every((candidate) => candidate.factors.length > 0)),
+        voicesMatch: decisions.every((decision, index) => decision.candidates.every((candidate) => candidate.voice === ready.personaFixtures[index].speechStyle)),
         candidateCountValid: decisions.every((decision) => decision.candidates.length > 0 && decision.candidates.length <= 3),
       });
     }
@@ -63,14 +64,16 @@ try {
       playerRefused: playerOutcomes.filter((value) => !value).length,
       activePersona: ready.personaProfile.id,
       firstFactors: ready.firstDecision.personaDecision.candidates[0].factors,
+      visibleExplanation: document.querySelector("#mind-status").textContent,
     };
   });
   assert.equal(result.execution, "dedicated-worker");
   assert.equal(result.dilemmas.length, 10);
   assert.ok(result.dilemmas.every((item) => item.strategies >= 8));
-  assert.ok(result.dilemmas.every((item) => item.reasonsHaveFactors && item.candidateCountValid));
+  assert.ok(result.dilemmas.every((item) => item.reasonsHaveFactors && item.voicesMatch && item.candidateCountValid));
   assert.ok(result.playerAccepted > 0 && result.playerRefused > 0);
   assert.ok(result.firstFactors.length > 0);
+  assert.match(result.visibleExplanation, /选择“.+” · 理由：.+ · 语气：/u);
   assert.deepEqual(outbound, []);
   await page.screenshot({ path: process.env.ECHO_TOWN_SCREENSHOT || "ap18-persona-core.png", fullPage: true });
   console.log(JSON.stringify({ ...result, externalRequests: outbound.length }, null, 2));

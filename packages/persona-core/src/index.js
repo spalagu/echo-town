@@ -1,6 +1,7 @@
 import {
   NEED_NAMES,
   TRAIT_NAMES,
+  scorePersonaOption,
   validateDilemma,
   validatePersonaDecision,
   validatePersonaProfile,
@@ -11,50 +12,6 @@ export { DILEMMA_FIXTURES, PERSONA_FIXTURES } from "./fixtures.js";
 
 function clamp(value, minimum, maximum) {
   return Math.min(maximum, Math.max(minimum, value));
-}
-
-function round(value) {
-  return Math.round(value * 1_000) / 1_000;
-}
-
-function scoreOption(profile, dilemma, option) {
-  const factors = [];
-  let utility = 0;
-  for (const trait of TRAIT_NAMES) {
-    const distance = Math.abs(profile.traits[trait] - option.traitVector[trait]);
-    const contribution = round((50 - distance) * 0.48);
-    utility += contribution;
-    factors.push({ path: `traits.${trait}`, value: profile.traits[trait], contribution });
-  }
-  profile.values.forEach((value, index) => {
-    const contribution = option.values.includes(value) ? 18 - (index * 4) : 0;
-    utility += contribution;
-    if (contribution) factors.push({ path: `values.${index}`, value, contribution });
-  });
-  const needContribution = round(profile.needs[option.need] * 0.22);
-  utility += needContribution;
-  factors.push({ path: `needs.${option.need}`, value: profile.needs[option.need], contribution: needContribution });
-  const moodContribution = round((profile.mood.valence / 100) * option.moodAxis * 4
-    + (profile.mood.arousal / 100) * 3);
-  utility += moodContribution;
-  factors.push({ path: "mood.valence", value: profile.mood.valence, contribution: moodContribution });
-  if (option.id === dilemma.playerSuggestionId) {
-    const suggestionContribution = round(10 - (profile.needs.autonomy * 0.28));
-    utility += suggestionContribution;
-    factors.push({ path: "playerSuggestion", value: "可拒绝建议", contribution: suggestionContribution });
-  }
-  return {
-    schemaVersion: 1,
-    strategyId: option.id,
-    label: option.label,
-    intent: structuredClone(option.intent),
-    utility: round(utility),
-    factors: factors
-      .filter((factor) => factor.contribution !== 0)
-      .sort((left, right) => Math.abs(right.contribution) - Math.abs(left.contribution) || left.path.localeCompare(right.path))
-      .slice(0, 6),
-    acceptedPlayerSuggestion: option.id === dilemma.playerSuggestionId,
-  };
 }
 
 export function rankIntentCandidates(rawProfile, rawDilemma, { maxCandidates = 3 } = {}) {
@@ -68,11 +25,11 @@ export function rankIntentCandidates(rawProfile, rawDilemma, { maxCandidates = 3
     profileId: profile.id,
     dilemmaId: dilemma.id,
     candidates: dilemma.options
-      .map((option) => scoreOption(profile, dilemma, option))
+      .map((option) => scorePersonaOption(profile, dilemma, option))
       .sort((left, right) => right.utility - left.utility || left.strategyId.localeCompare(right.strategyId))
       .slice(0, maxCandidates),
   };
-  const validation = validatePersonaDecision(decision, profile);
+  const validation = validatePersonaDecision(decision, profile, dilemma);
   if (!validation.ok) throw new Error(`Persona Core 产生非法决策：${validation.reason}`);
   return validation.decision;
 }
@@ -115,17 +72,23 @@ export function applyPersonaEvent(rawProfile, rawState, event) {
     || !Number.isInteger(event.moodDelta.arousal) || Math.abs(event.moodDelta.valence) > 20
     || Math.abs(event.moodDelta.arousal) > 20 || !exactDeltaMap(event.needDeltas, NEED_NAMES, -20, 20)
     || !Array.isArray(event.sourceEventIds) || event.sourceEventIds.length === 0
-    || event.sourceEventIds.some((id) => typeof id !== "string" || id.length === 0 || id.length > 96)) {
+    || event.sourceEventIds.some((id) => typeof id !== "string" || id.length === 0 || id.length > 96)
+    || new Set(event.sourceEventIds).size !== event.sourceEventIds.length) {
     throw new Error("PersonaGrowthEvent 非法");
   }
   const state = event.logicalDay >= rawState.windowStartDay + 30 ? initialGrowthState(event.logicalDay) : structuredClone(rawState);
   if (event.sourceEventIds.some((id) => state.sourceEventIds.includes(id))) {
     return { ok: false, reason: "source_event_replay", profile, state };
   }
+  const cumulativeTraitDeltas = Object.fromEntries(TRAIT_NAMES.map((trait) => [
+    trait,
+    state.cumulativeTraitDeltas[trait] + event.traitDeltas[trait],
+  ]));
+  if (TRAIT_NAMES.some((trait) => Math.abs(cumulativeTraitDeltas[trait]) > 5)) {
+    return { ok: false, reason: "thirty_day_trait_limit", profile, state };
+  }
   for (const trait of TRAIT_NAMES) {
-    const cumulative = state.cumulativeTraitDeltas[trait] + event.traitDeltas[trait];
-    if (Math.abs(cumulative) > 5) return { ok: false, reason: "thirty_day_trait_limit", profile, state };
-    state.cumulativeTraitDeltas[trait] = cumulative;
+    state.cumulativeTraitDeltas[trait] = cumulativeTraitDeltas[trait];
     profile.traits[trait] = clamp(profile.traits[trait] + event.traitDeltas[trait], 0, 100);
   }
   profile.mood.valence = clamp(profile.mood.valence + event.moodDelta.valence, -100, 100);

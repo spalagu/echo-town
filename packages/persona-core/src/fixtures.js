@@ -40,36 +40,55 @@ export const PERSONA_FIXTURES = deepFreeze(archetypes.map((item) => validatePers
 })));
 
 const dilemmaThemes = [
-  ["lost_parcel", "无人认领的包裹"],
-  ["public_dispute", "市场上的公开争执"],
-  ["strange_sound", "钟楼深夜的异响"],
-  ["scarce_food", "面包房原料短缺"],
-  ["broken_bridge", "河湾木桥损坏"],
-  ["new_neighbor", "沉默的新邻居"],
-  ["risky_offer", "来历不明的合作"],
-  ["hidden_mark", "墙后反复出现的印记"],
-  ["night_alarm", "没有火光的夜间警铃"],
-  ["player_request", "守望者来信要求立即行动"],
+  ["lost_parcel", "无人认领的包裹", [10, 10, 15, 5, 35, 0, -10, -15, 5, 10, 20, 0]],
+  ["public_dispute", "市场上的公开争执", [-10, 5, 25, 15, 5, -5, -5, -10, 45, 10, 5, -20]],
+  ["strange_sound", "钟楼深夜的异响", [10, 30, 0, 0, 35, 5, 10, -5, 0, 10, 25, -10]],
+  ["scarce_food", "面包房原料短缺", [-10, 35, 25, 25, 5, 20, -5, 15, 15, 15, 0, -10]],
+  ["broken_bridge", "河湾木桥损坏", [-10, 30, 10, 5, 5, 45, -15, 25, 10, 15, 5, -20]],
+  ["new_neighbor", "沉默的新邻居", [5, 0, 40, 25, -10, 0, 5, -5, 20, 5, 10, 10]],
+  ["risky_offer", "来历不明的合作", [-10, 25, 0, 0, 35, -5, 20, -25, 5, 10, 30, -15]],
+  ["hidden_mark", "墙后反复出现的印记", [25, 5, 0, 0, 30, 10, 5, -10, 0, 10, 45, 5]],
+  ["night_alarm", "没有火光的夜间警铃", [5, 40, 20, 10, 30, 0, -10, 15, 10, 10, 20, -20]],
+  ["player_request", "守望者来信要求立即行动", [5, 5, 10, 5, 10, 5, 15, 40, 10, 0, 5, 5]],
 ];
 const directions = [[1, 0], [0, -1], [1, -1], [-1, 0], [-1, -1], [0, 1], [-1, 1], [1, 1]];
 
-export const DILEMMA_FIXTURES = deepFreeze(dilemmaThemes.map(([id, title], dilemmaIndex) => {
-  const options = PERSONA_FIXTURES.map((profile, profileIndex) => {
-    const [dx, dy] = directions[(profileIndex + dilemmaIndex) % directions.length];
+// 这是独立于 PERSONA_FIXTURES 编写的通用应对策略库；困境选项不得从某个人格反向生成。
+const strategyTemplates = [
+  ["explore", "亲自探索尚未核实的方向", [90, 35, 65, 45, 40], ["冒险", "自由", "真相"], "curiosity", 1, ["未知", "远方", "线索", "亲眼"]],
+  ["safeguard", "先隔离风险并保护现场", [25, 95, 35, 65, 65], ["传统", "共同体", "关怀"], "safety", -1, ["风险", "保护", "门窗", "物资"]],
+  ["convene", "召集邻里交换各自所知", [60, 45, 95, 75, 45], ["共同体", "关怀", "自由"], "belonging", 1, ["邻居", "开口", "召集", "寒暄"]],
+  ["care", "先照料最容易受影响的人", [50, 70, 45, 95, 65], ["关怀", "共同体", "公正"], "energy", 1, ["照料", "受伤", "帮助", "问候"]],
+  ["observe", "记录异常并交叉核对出处", [70, 80, 30, 40, 95], ["真相", "公正", "共同体"], "safety", -1, ["证据", "异常", "核对", "出处"]],
+  ["prototype", "制作一个可逆的小型试验", [90, 90, 40, 60, 30], ["创造", "成就", "共同体"], "achievement", 0, ["做出", "原型", "工具", "草图"]],
+  ["withdraw", "保留退出路径并独自观察", [55, 40, 25, 20, 45], ["自由", "真相", "创造"], "autonomy", -1, ["退出", "独自", "违心", "退路"]],
+  ["execute", "接受请求并立即完成关键一步", [65, 95, 85, 40, 35], ["成就", "公正", "创造"], "achievement", 1, ["完成", "任务", "优先级", "努力"]],
+  ["mediate", "分别倾听后寻找可共存方案", [60, 70, 55, 95, 85], ["公正", "关怀", "共同体"], "belonging", 0, ["冲突", "双方", "复述", "底线"]],
+  ["precedent", "查阅旧例和共同约定", [20, 90, 45, 70, 50], ["传统", "共同体", "公正"], "safety", -1, ["传统", "旧例", "约定", "教给"]],
+  ["hypothesis", "提出能被反例推翻的假说", [98, 85, 20, 45, 70], ["真相", "创造", "自由"], "curiosity", 0, ["痕迹", "反例", "假说", "解释"]],
+  ["improvise", "用低风险的临时行动打破僵局", [85, 20, 90, 60, 40], ["冒险", "关怀", "创造"], "energy", 1, ["临时", "小事", "打破", "冲动"]],
+];
+
+export const DILEMMA_FIXTURES = deepFreeze(dilemmaThemes.map(([id, title, contextWeights], dilemmaIndex) => {
+  const options = strategyTemplates.map((strategy, strategyIndex) => {
+    const [strategyId, label, traitValues, values, need, moodAxis, motifs] = strategy;
+    const [dx, dy] = directions[(strategyIndex + dilemmaIndex) % directions.length];
     return {
-      id: `${id}_${profile.id}`,
-      label: `${title}：${archetypes[profileIndex][11]}`,
+      id: `${id}_${strategyId}`,
+      label: `${title}：${label}`,
       intent: {
         schemaVersion: 1,
         intentType: "move",
         payload: { dx, dy },
-        budget: 2 + ((profileIndex + dilemmaIndex) % 4),
-        reasonCode: `persona_${dilemmaIndex}_${profileIndex}`,
+        budget: 2 + ((strategyIndex + dilemmaIndex) % 4),
+        reasonCode: `dilemma_${dilemmaIndex}_${strategyIndex}`,
       },
-      traitVector: profile.traits,
-      values: profile.values.slice(0, 2),
-      need: archetypes[profileIndex][10],
-      moodAxis: (profileIndex % 3) - 1,
+      traitVector: numbers(TRAIT_NAMES, traitValues),
+      values,
+      need,
+      moodAxis,
+      motifs,
+      contextWeight: contextWeights[strategyIndex],
     };
   });
   return {

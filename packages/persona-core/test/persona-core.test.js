@@ -20,7 +20,7 @@ test("12 个冻结人格在 10 类困境中产生可解释的确定性候选", (
       const second = rankIntentCandidates(profile, dilemma);
       assert.deepEqual(first, second);
       assert.equal(first.candidates.length, 3);
-      assert.equal(validatePersonaDecision(first, profile).ok, true);
+      assert.equal(validatePersonaDecision(first, profile, dilemma).ok, true);
       preferred.add(first.candidates[0].strategyId);
     }
     assert.ok(preferred.size >= 8, `${dilemma.id} 只有 ${preferred.size} 种首选策略`);
@@ -52,6 +52,8 @@ test("单事件和 30 日核心特质变化分别限制为 1 与 5", () => {
   const overflow = applyPersonaEvent(profile, state, growthEvent(5, 1));
   assert.equal(overflow.ok, false);
   assert.equal(overflow.reason, "thirty_day_trait_limit");
+  assert.deepEqual(overflow.profile, profile);
+  assert.deepEqual(overflow.state, state);
   const replay = applyPersonaEvent(profile, state, growthEvent(4, 0));
   assert.equal(replay.ok, false);
   assert.equal(replay.reason, "source_event_replay");
@@ -60,13 +62,58 @@ test("单事件和 30 日核心特质变化分别限制为 1 与 5", () => {
   assert.equal(nextWindow.state.windowStartDay, 30);
   assert.equal(nextWindow.state.cumulativeTraitDeltas.openness, 1);
   assert.throws(() => applyPersonaEvent(profile, state, growthEvent(5, 2)), /PersonaGrowthEvent 非法/);
+  assert.throws(() => applyPersonaEvent(profile, state, {
+    ...growthEvent(6, 0),
+    sourceEventIds: ["duplicate-source", "duplicate-source"],
+  }), /PersonaGrowthEvent 非法/);
+  const boundaryState = initialGrowthState(0);
+  boundaryState.cumulativeTraitDeltas.conscientiousness = 5;
+  const atomicEvent = growthEvent(7, 0);
+  atomicEvent.traitDeltas.openness = 1;
+  atomicEvent.traitDeltas.conscientiousness = 1;
+  const atomicResult = applyPersonaEvent(PERSONA_FIXTURES[0], boundaryState, atomicEvent);
+  assert.equal(atomicResult.ok, false);
+  assert.deepEqual(atomicResult.profile, PERSONA_FIXTURES[0]);
+  assert.deepEqual(atomicResult.state, boundaryState);
 });
 
-test("移除解释因素会被决策 gate 拒绝", () => {
+test("解释因素、效用或归因被篡改都会被决策 gate 拒绝", () => {
   const profile = PERSONA_FIXTURES[0];
-  const decision = rankIntentCandidates(profile, DILEMMA_FIXTURES[0]);
+  const dilemma = DILEMMA_FIXTURES[0];
+  const decision = rankIntentCandidates(profile, dilemma);
   decision.candidates[0].factors = [];
-  assert.equal(validatePersonaDecision(decision, profile).ok, false);
+  assert.equal(validatePersonaDecision(decision, profile, dilemma).ok, false);
+  const utilityMutation = rankIntentCandidates(profile, dilemma);
+  utilityMutation.candidates[0].utility += 1;
+  assert.equal(validatePersonaDecision(utilityMutation, profile, dilemma).ok, false);
+  const attributionMutation = rankIntentCandidates(profile, dilemma);
+  const mood = attributionMutation.candidates[0].factors.find((factor) => factor.path === "mood.arousal");
+  mood.path = "mood.valence";
+  mood.value = profile.mood.valence;
+  assert.equal(validatePersonaDecision(attributionMutation, profile, dilemma).ok, false);
+});
+
+test("困境策略独立于人格 fixture，长期目标与矛盾进入效用，语言风格进入表达", () => {
+  const observedPaths = new Set();
+  let contextChangedChoices = 0;
+  for (const dilemma of DILEMMA_FIXTURES) {
+    for (const profile of PERSONA_FIXTURES) {
+      const decision = rankIntentCandidates(profile, dilemma);
+      const contextNeutral = structuredClone(dilemma);
+      contextNeutral.options.forEach((option) => { option.contextWeight = 0; });
+      if (decision.candidates[0].strategyId !== rankIntentCandidates(profile, contextNeutral).candidates[0].strategyId) {
+        contextChangedChoices += 1;
+      }
+      assert.ok(decision.candidates.every((candidate) => candidate.voice === profile.speechStyle));
+      decision.candidates.flatMap((candidate) => candidate.factors).forEach((factor) => observedPaths.add(factor.path));
+    }
+  }
+  assert.ok(observedPaths.has("desire"));
+  assert.ok(observedPaths.has("fear"));
+  assert.ok(observedPaths.has("contradiction"));
+  assert.ok([...observedPaths].some((path) => path.startsWith("habits.")));
+  assert.ok(contextChangedChoices >= 3, `情境权重只改变了 ${contextChangedChoices} 个选择`);
+  assert.notEqual(DILEMMA_FIXTURES[0].options[0].traitVector, PERSONA_FIXTURES[0].traits);
 });
 
 function growthEvent(logicalDay, delta) {

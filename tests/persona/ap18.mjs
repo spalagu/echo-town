@@ -14,8 +14,13 @@ for (const dilemma of DILEMMA_FIXTURES) {
   const strategies = new Set(decisions.map((decision) => decision.candidates[0].strategyId));
   const actions = new Set(decisions.map((decision) => JSON.stringify(decision.candidates[0].intent)));
   assert.ok(strategies.size >= 8);
-  assert.ok(decisions.every((decision, index) => validatePersonaDecision(decision, PERSONA_FIXTURES[index]).ok));
-  results.push({ dilemmaId: dilemma.id, preferredStrategies: strategies.size, distinctWorldIntents: actions.size });
+  assert.ok(decisions.every((decision, index) => validatePersonaDecision(decision, PERSONA_FIXTURES[index], dilemma).ok));
+  results.push({
+    dilemmaId: dilemma.id,
+    preferredStrategies: strategies.size,
+    distinctWorldIntents: actions.size,
+    representativeExplanation: decisions[0].candidates[0],
+  });
 }
 
 const fixedProfileStrategies = new Set(DILEMMA_FIXTURES[0].options.map(() => (
@@ -25,7 +30,11 @@ assert.ok(fixedProfileStrategies.size < 8, "固定人格 mutation 应判红");
 
 const explanationMutation = rankIntentCandidates(PERSONA_FIXTURES[0], DILEMMA_FIXTURES[0]);
 explanationMutation.candidates.forEach((candidate) => { candidate.factors = []; });
-assert.equal(validatePersonaDecision(explanationMutation, PERSONA_FIXTURES[0]).ok, false, "移除因素 mutation 应判红");
+assert.equal(validatePersonaDecision(explanationMutation, PERSONA_FIXTURES[0], DILEMMA_FIXTURES[0]).ok, false, "移除因素 mutation 应判红");
+
+const utilityMutation = rankIntentCandidates(PERSONA_FIXTURES[0], DILEMMA_FIXTURES[0]);
+utilityMutation.candidates[0].utility += 1;
+assert.equal(validatePersonaDecision(utilityMutation, PERSONA_FIXTURES[0], DILEMMA_FIXTURES[0]).ok, false, "效用篡改 mutation 应判红");
 
 const largeStep = {
   schemaVersion: 1,
@@ -36,6 +45,9 @@ const largeStep = {
   sourceEventIds: ["ap18-mutation"],
 };
 assert.throws(() => applyPersonaEvent(PERSONA_FIXTURES[0], initialGrowthState(), largeStep));
+
+const duplicateSource = { ...largeStep, traitDeltas: { ...largeStep.traitDeltas, openness: 0 }, sourceEventIds: ["same", "same"] };
+assert.throws(() => applyPersonaEvent(PERSONA_FIXTURES[0], initialGrowthState(), duplicateSource));
 
 const playerDilemma = DILEMMA_FIXTURES.find((item) => item.id === "player_request");
 const playerDecisions = PERSONA_FIXTURES.map((profile) => rankIntentCandidates(profile, playerDilemma));
@@ -49,5 +61,5 @@ console.log(JSON.stringify({
   results,
   playerSuggestionAccepted: playerDecisions.filter((decision) => decision.candidates[0].acceptedPlayerSuggestion).length,
   playerSuggestionRefused: playerDecisions.filter((decision) => !decision.candidates[0].acceptedPlayerSuggestion).length,
-  mutations: { fixedPersona: "red", removedFactors: "red", largeTraitStep: "red" },
+  mutations: { fixedPersona: "red", removedFactors: "red", tamperedUtility: "red", largeTraitStep: "red", duplicateSource: "red" },
 }, null, 2));

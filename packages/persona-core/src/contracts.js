@@ -42,7 +42,7 @@ const PROFILE_KEYS = new Set([
 ]);
 const MOOD_KEYS = new Set(["valence", "arousal"]);
 const DILEMMA_KEYS = new Set(["schemaVersion", "id", "title", "playerSuggestionId", "options"]);
-const OPTION_KEYS = new Set(["id", "label", "intent", "traitVector", "values", "need", "moodAxis"]);
+const OPTION_KEYS = new Set(["id", "label", "intent", "traitVector", "values", "need", "moodAxis", "motifs", "contextWeight"]);
 const INTENT_KEYS = new Set(["schemaVersion", "intentType", "payload", "budget", "reasonCode"]);
 const PAYLOAD_KEYS = new Set(["dx", "dy"]);
 const DECISION_KEYS = new Set(["schemaVersion", "profileId", "dilemmaId", "candidates"]);
@@ -54,6 +54,7 @@ const CANDIDATE_KEYS = new Set([
   "utility",
   "factors",
   "acceptedPlayerSuggestion",
+  "voice",
 ]);
 const FACTOR_KEYS = new Set(["path", "value", "contribution"]);
 
@@ -132,6 +133,10 @@ export function validateDilemma(value) {
     if (!NEED_NAMES.includes(option.need) || !isInteger(option.moodAxis, -1, 1)) {
       throw new Error("Persona dilemma option 状态因素非法");
     }
+    if (!isInteger(option.contextWeight, -60, 60)) throw new Error("Persona dilemma option 情境权重非法");
+    if (!Array.isArray(option.motifs) || option.motifs.length < 2 || option.motifs.length > 8
+      || new Set(option.motifs).size !== option.motifs.length
+      || option.motifs.some((item) => !isText(item, 20))) throw new Error("Persona dilemma option 叙事动机非法");
   }
   if (!ids.has(value.playerSuggestionId)) throw new Error("Persona dilemma 玩家建议不存在");
   return structuredClone(value);
@@ -149,34 +154,100 @@ export function personaFactorPaths(profile) {
     "mood.valence",
     "mood.arousal",
     ...NEED_NAMES.map((name) => `needs.${name}`),
+    "dilemma.contextWeight",
     "playerSuggestion",
   ]);
   return valid;
 }
 
-export function validatePersonaDecision(decision, rawProfile) {
+export function validatePersonaDecision(decision, rawProfile, rawDilemma) {
   const profile = validatePersonaProfile(rawProfile);
+  let dilemma;
+  try { dilemma = validateDilemma(rawDilemma); } catch { return { ok: false, reason: "dilemma_reference" }; }
   if (!hasExactKeys(decision, DECISION_KEYS) || decision.schemaVersion !== 1 || decision.profileId !== profile.id
-    || !isText(decision.dilemmaId, 40) || !Array.isArray(decision.candidates)
+    || decision.dilemmaId !== dilemma.id || !Array.isArray(decision.candidates)
     || decision.candidates.length === 0 || decision.candidates.length > 3) return { ok: false, reason: "decision_shape" };
   const paths = personaFactorPaths(profile);
   for (const candidate of decision.candidates) {
     if (!hasExactKeys(candidate, CANDIDATE_KEYS) || candidate.schemaVersion !== 1
       || !isText(candidate.strategyId, 64) || !isText(candidate.label)
       || !Number.isFinite(candidate.utility) || typeof candidate.acceptedPlayerSuggestion !== "boolean"
+      || candidate.voice !== profile.speechStyle
       || !Array.isArray(candidate.factors) || candidate.factors.length === 0) return { ok: false, reason: "candidate_shape" };
     try { validateIntent(candidate.intent); } catch { return { ok: false, reason: "candidate_intent" }; }
-    if (candidate.factors.some((factor) => !hasExactKeys(factor, FACTOR_KEYS) || !paths.has(factor.path)
+    const option = dilemma.options.find((item) => item.id === candidate.strategyId);
+    if (!option || candidate.factors.some((factor) => !hasExactKeys(factor, FACTOR_KEYS) || !paths.has(factor.path)
       || !Number.isFinite(factor.contribution) || !isText(String(factor.value), 160)
-      || !factorValueMatches(profile, factor))) {
+      || !factorValueMatches(profile, option, factor))) {
       return { ok: false, reason: "factor_reference" };
     }
+    if (round(candidate.factors.reduce((sum, factor) => sum + factor.contribution, 0)) !== candidate.utility) {
+      return { ok: false, reason: "utility_sum" };
+    }
   }
+  const expected = dilemma.options
+    .map((option) => scorePersonaOption(profile, dilemma, option))
+    .sort((left, right) => right.utility - left.utility || left.strategyId.localeCompare(right.strategyId))
+    .slice(0, decision.candidates.length);
+  if (JSON.stringify(decision.candidates) !== JSON.stringify(expected)) return { ok: false, reason: "decision_recompute" };
   return { ok: true, decision: structuredClone(decision) };
 }
 
-function factorValueMatches(profile, factor) {
+function round(value) {
+  return Math.round(value * 1_000) / 1_000;
+}
+
+function motifMatches(text, motifs) {
+  return motifs.filter((motif) => text.includes(motif)).length;
+}
+
+export function scorePersonaOption(profile, dilemma, option) {
+  const factors = [];
+  if (option.contextWeight) factors.push({ path: "dilemma.contextWeight", value: option.contextWeight, contribution: option.contextWeight });
+  for (const trait of TRAIT_NAMES) {
+    const distance = Math.abs(profile.traits[trait] - option.traitVector[trait]);
+    factors.push({ path: `traits.${trait}`, value: profile.traits[trait], contribution: round((50 - distance) * 0.3) });
+  }
+  profile.values.forEach((value, index) => {
+    const contribution = option.values.includes(value) ? 18 - (index * 4) : 0;
+    if (contribution) factors.push({ path: `values.${index}`, value, contribution });
+  });
+  factors.push({ path: `needs.${option.need}`, value: profile.needs[option.need], contribution: round(profile.needs[option.need] * 0.22) });
+  factors.push({ path: "mood.valence", value: profile.mood.valence, contribution: round((profile.mood.valence / 100) * option.moodAxis * 4) });
+  factors.push({ path: "mood.arousal", value: profile.mood.arousal, contribution: round((profile.mood.arousal / 100) * 3) });
+  for (const [path, text, weight] of [
+    ["desire", profile.desire, 6],
+    ["fear", profile.fear, -5],
+    ["contradiction", profile.contradiction, 3],
+  ]) {
+    const contribution = motifMatches(text, option.motifs) * weight;
+    if (contribution) factors.push({ path, value: text, contribution });
+  }
+  profile.habits.forEach((habit, index) => {
+    const contribution = motifMatches(habit, option.motifs) * 2;
+    if (contribution) factors.push({ path: `habits.${index}`, value: habit, contribution });
+  });
+  if (option.id === dilemma.playerSuggestionId) {
+    factors.push({ path: "playerSuggestion", value: "可拒绝建议", contribution: round(10 - (profile.needs.autonomy * 0.28)) });
+  }
+  const nonZeroFactors = factors
+    .filter((factor) => factor.contribution !== 0)
+    .sort((left, right) => Math.abs(right.contribution) - Math.abs(left.contribution) || left.path.localeCompare(right.path));
+  return {
+    schemaVersion: 1,
+    strategyId: option.id,
+    label: option.label,
+    intent: structuredClone(option.intent),
+    utility: round(nonZeroFactors.reduce((sum, factor) => sum + factor.contribution, 0)),
+    factors: nonZeroFactors,
+    acceptedPlayerSuggestion: option.id === dilemma.playerSuggestionId,
+    voice: profile.speechStyle,
+  };
+}
+
+function factorValueMatches(profile, option, factor) {
   if (factor.path === "playerSuggestion") return factor.value === "可拒绝建议";
+  if (factor.path === "dilemma.contextWeight") return factor.value === option.contextWeight;
   const [section, key] = factor.path.split(".");
   const expected = key === undefined ? profile[section] : profile[section]?.[key];
   return expected === factor.value;

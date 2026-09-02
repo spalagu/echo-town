@@ -182,7 +182,11 @@ async function bootstrap() {
     needs: [{ kind: "social", level: 62 }],
     visibleEvents: [],
   }, { personaProfile, dilemma: DILEMMA_FIXTURES[0] });
-  document.querySelector("#mind-status").textContent = `角色心智：${localMindStatus.mode} · ${localMindStatus.execution} · 人格已就绪 · ${memoryGraph.allMemories().length} 条有来源记忆`;
+  const chosen = firstDecision.personaDecision.candidates[0];
+  const strongestReasons = chosen.factors.slice(0, 3)
+    .map((factor) => `${factor.path}=${factor.value}（${factor.contribution > 0 ? "+" : ""}${factor.contribution}）`)
+    .join("；");
+  document.querySelector("#mind-status").textContent = `角色心智：${localMindStatus.mode} · ${localMindStatus.execution} · 人格 ${personaProfile.id} 选择“${chosen.label}” · 理由：${strongestReasons} · 语气：${chosen.voice} · ${memoryGraph.allMemories().length} 条有来源记忆`;
   const offlineLabel = offlineWorker.controlled ? "离线缓存就绪" : "离线缓存未接管";
   document.querySelector("#runtime-status").textContent = `本地身份、AI Worker、Wasm 核心与${offlineLabel} · ${manifest.version} · ${manifest.assets.length} 项静态资源`;
 
