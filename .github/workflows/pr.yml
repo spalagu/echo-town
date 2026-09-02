@@ -127,5 +127,6 @@ jobs:
       - run: npm run build
       - run: npm run test:mystery-world-core-wasm
       - run: npm run test:latent-zone-world-core-wasm
+      - run: npm run test:companion-browser
       - run: npm run test:society-browser
       - run: npm run test:fiction-boundary-browser

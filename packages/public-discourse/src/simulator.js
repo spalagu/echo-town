@@ -1,5 +1,10 @@
 import { MemoryGraph, validateAcquaintanceEdge, validateMemoryRecord } from "@echo-town/memory-graph";
-import { DILEMMA_FIXTURES, PERSONA_FIXTURES, rankIntentCandidates } from "@echo-town/persona-core";
+import {
+  DILEMMA_FIXTURES,
+  PERSONA_FIXTURES,
+  personaFactorPaths,
+  rankIntentCandidates,
+} from "@echo-town/persona-core";
 import { PublicDiscourse } from "./discourse.js";
 import {
   validateHistoricalSummary,
@@ -54,6 +59,13 @@ function seededRandom(seedText) {
 
 function clamp(value, minimum, maximum) {
   return Math.min(maximum, Math.max(minimum, value));
+}
+
+function factorValueMatchesProfile(profile, factor) {
+  if (factor.path === "playerSuggestion") return factor.value === "可拒绝建议";
+  if (factor.path === "dilemma.contextWeight") return Number.isInteger(factor.value) && factor.value >= -60 && factor.value <= 60;
+  const [section, key] = factor.path.split(".");
+  return (key === undefined ? profile[section] : profile[section]?.[key]) === factor.value;
 }
 
 function strategyName(strategyId) {
@@ -391,7 +403,8 @@ export function simulateSociety(rawInitialState, rawSituations, worldSeed) {
         id: `action-${roundIndex}-${actorIndex}-${worldSeed}`, kind: ACTION_CATEGORY[actionAffordance] ?? "experiment", tick: round.tick,
         actorId: actor.id, detail: `${actionAffordance}；${tension.resourceId}${actualAppliedDelta >= 0 ? "+" : ""}${actualAppliedDelta}；${candidate.label}`,
         actionAffordance, availableAffordances: allowedAffordances, situationId: round.situation.id, phase: round.phase,
-        decisionContextHash, decisionUtility: candidate.utility,
+        decisionContextHash, decisionStrategyId: candidate.strategyId,
+        decisionUtility: candidate.utility, decisionFactors: structuredClone(candidate.factors),
         resourceId: tension.resourceId, declaredResourceDelta: declaredDelta, actualResourceDelta: actualAppliedDelta,
         resourceLevelBefore, resourceLevelAfter,
         memoryInputIds: recalled.map((item) => item.id), claimInputIds: visibleClaims.map((item) => item.id),
@@ -529,11 +542,20 @@ export function validateSimulationResult(result, rawInitialState, rawSituations)
   if (!actionEvents.some((item) => item.claimInputIds?.length > 0)) return { ok: false, reason: "discourse_feedback_missing" };
   for (const event of actionEvents) {
     const situation = situations.find((item) => item.id === event.situationId);
+    const profile = PERSONA_FIXTURES.find((item) => `${item.id}-${result.worldSeed}` === event.actorId);
     if (!situation || !Array.isArray(event.availableAffordances) || !event.availableAffordances.includes(event.actionAffordance)) return { ok: false, reason: "affordance_bypass" };
     const shared = situation.actionAffordances.filter((item) => initialState.actionAffordances.includes(item));
     const expected = shared.length ? shared : [...new Set([...initialState.actionAffordances, ...situation.actionAffordances])];
     if (JSON.stringify(event.availableAffordances) !== JSON.stringify(expected)) return { ok: false, reason: "affordance_context_ignored" };
-    if (!Number.isInteger(event.decisionContextHash) || !Number.isFinite(event.decisionUtility)
+    if (!profile || !Number.isInteger(event.decisionContextHash)
+      || typeof event.decisionStrategyId !== "string" || event.decisionStrategyId.length === 0 || event.decisionStrategyId.length > 64
+      || !Number.isFinite(event.decisionUtility) || !Array.isArray(event.decisionFactors) || event.decisionFactors.length === 0
+      || event.decisionFactors.some((factor) => !factor || typeof factor !== "object" || Array.isArray(factor)
+        || Object.keys(factor).length !== 3 || !Object.hasOwn(factor, "path") || !Object.hasOwn(factor, "value")
+        || !Object.hasOwn(factor, "contribution") || !personaFactorPaths(profile).has(factor.path)
+        || !Number.isFinite(factor.contribution) || String(factor.value).length === 0 || String(factor.value).length > 160
+        || !factorValueMatchesProfile(profile, factor))
+      || Math.round(event.decisionFactors.reduce((sum, factor) => sum + factor.contribution, 0) * 1_000) / 1_000 !== event.decisionUtility
       || !initialState.resources.some((item) => item.id === event.resourceId)
       || !Number.isInteger(event.resourceLevelBefore) || event.resourceLevelBefore < 0
       || !Number.isInteger(event.resourceLevelAfter) || event.resourceLevelAfter < 0

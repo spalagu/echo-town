@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@echo-town/capability-state": "*",
+    "@echo-town/companion-core": "*",
     "@echo-town/fiction-boundary": "*",
     "@echo-town/identity-vault": "*",
     "@echo-town/local-mind": "*",

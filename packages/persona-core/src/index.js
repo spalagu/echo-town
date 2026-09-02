@@ -7,7 +7,15 @@ import {
   validatePersonaProfile,
 } from "./contracts.js";
 
-export { NEED_NAMES, TRAIT_NAMES, VALUE_NAMES, validateDilemma, validatePersonaDecision, validatePersonaProfile } from "./contracts.js";
+export {
+  NEED_NAMES,
+  TRAIT_NAMES,
+  VALUE_NAMES,
+  personaFactorPaths,
+  validateDilemma,
+  validatePersonaDecision,
+  validatePersonaProfile,
+} from "./contracts.js";
 export { DILEMMA_FIXTURES, PERSONA_FIXTURES } from "./fixtures.js";
 
 function clamp(value, minimum, maximum) {

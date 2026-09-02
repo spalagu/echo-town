@@ -1,5 +1,6 @@
 import * as Phaser from "phaser";
 import { CapabilityController, describeCapabilityState } from "@echo-town/capability-state";
+import { CompanionSession, IndexedDbCompanionStore } from "@echo-town/companion-core";
 import { assessFictionalContent, assertVisibleFictionNotice, validateFictionBoundary } from "@echo-town/fiction-boundary";
 import { IndexedDbVaultStore, loadOrCreateIdentity } from "@echo-town/identity-vault";
 import { LocalMindClient } from "@echo-town/local-mind";
@@ -38,6 +39,199 @@ function applyWorldContent(manifest) {
 function updatePlace(name, message) {
   document.querySelector("#place-name").textContent = name;
   document.querySelector("#place-message").textContent = message;
+}
+
+function element(tagName, className, text) {
+  const node = document.createElement(tagName);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+function renderBehaviorDetail(companion, behaviorId) {
+  const detail = companion.explainBehavior(behaviorId);
+  const container = document.querySelector("#behavior-detail");
+  const eyebrow = element("p", "eyebrow", detail.behavior.type === "action" ? "行动的真实原因" : "表达的真实原因");
+  const title = element("h3", "", `第 ${detail.behavior.logicalDay} 日 · ${detail.behavior.summary}`);
+  const statement = element("p", "", `人格 ${detail.reason.personaProfileId} 采用策略 ${detail.reason.strategyId}，效用 ${detail.reason.utility}。以下因素来自当时的决策记录，不是事后推测。`);
+  const factorList = element("ul", "factor-list");
+  detail.reason.factors.slice(0, 8).forEach((factor) => {
+    factorList.append(element("li", "", `${factor.path} = ${factor.value}（${factor.contribution > 0 ? "+" : ""}${factor.contribution}）`));
+  });
+  const sourceTitle = element("p", "", "可核对来源");
+  const sourceList = element("ul", "source-list");
+  detail.events.forEach((event) => sourceList.append(element("li", "", `事件 ${event.id}`)));
+  detail.memories.slice(0, 4).forEach((memory) => sourceList.append(element("li", "", `记忆 ${memory.id}`)));
+  detail.claims.slice(0, 4).forEach((claim) => sourceList.append(element("li", "", `表达 ${claim.id}`)));
+  container.replaceChildren(eyebrow, title, statement, factorList, sourceTitle, sourceList);
+}
+
+function renderBehaviors(companion) {
+  const list = document.querySelector("#behavior-list");
+  list.replaceChildren();
+  companion.behaviors().forEach((behavior) => {
+    const item = element("li", "behavior-card");
+    const meta = element("div", "behavior-meta");
+    meta.append(element("span", "", `第 ${behavior.logicalDay} 日`), element("span", "", behavior.type === "action" ? "行动" : "表达"));
+    const summary = element("p", "", behavior.summary);
+    const button = element("button", "why-button", "查看为什么");
+    button.type = "button";
+    button.dataset.behaviorId = behavior.id;
+    button.setAttribute("aria-label", `查看第 ${behavior.logicalDay} 日这段${behavior.type === "action" ? "行动" : "表达"}的原因`);
+    button.addEventListener("click", () => renderBehaviorDetail(companion, behavior.id));
+    item.append(meta, summary, button);
+    list.append(item);
+  });
+  renderBehaviorDetail(companion, companion.behaviors()[0].id);
+}
+
+function renderReturnSummary(companion) {
+  const summary = companion.returnSummary(0, 30);
+  const container = document.querySelector("#return-summary");
+  const list = element("ul", "return-highlights");
+  summary.highlights.forEach((highlight) => list.append(element("li", "", `第 ${highlight.logicalDay} 日 · ${highlight.summary}`)));
+  container.replaceChildren(
+    element("p", "eyebrow", "离开之后 / 只读摘要"),
+    element("h3", "", summary.title),
+    list,
+  );
+}
+
+function renderHeartRoom(companion) {
+  const container = document.querySelector("#heart-log");
+  const entries = companion.heartRoom();
+  if (entries.length === 0) {
+    container.replaceChildren(element("p", "empty-state", "还没有说过话。可以从今天过得怎么样开始。"));
+    return;
+  }
+  container.replaceChildren(...entries.map((entry) => {
+    const item = element("article", `heart-entry${entry.role === "user" ? " is-user" : ""}`, entry.text);
+    item.append(element("small", "", entry.role === "user" ? "你 · 本地私人" : "角色 · 本地私人 · 非世界事实"));
+    return item;
+  }));
+}
+
+function influenceStatusLabel(status) {
+  return ({ pending: "等待角色回应", accepted_as_influence: "角色愿意把它当作参考", refused: "角色选择不接受" })[status];
+}
+
+function renderInfluences(companion, companionStore) {
+  const list = document.querySelector("#influence-list");
+  list.replaceChildren(...companion.influenceLog().map((influence) => {
+    const item = element("li", "influence-item");
+    item.append(
+      element("span", "influence-status", `${({ letter: "信件", wish: "愿望", gift: "礼物" })[influence.kind]} · ${influenceStatusLabel(influence.status)}`),
+      element("p", "", influence.text),
+    );
+    if (influence.status === "pending") {
+      const button = element("button", "respond-button", "让角色回应");
+      button.type = "button";
+      button.addEventListener("click", async () => {
+        button.disabled = true;
+        try {
+          const considered = companion.considerInfluence(influence.id);
+          await companionStore.set(companion.snapshot());
+          document.querySelector("#influence-feedback").textContent = influenceStatusLabel(considered.status);
+          renderInfluences(companion, companionStore);
+        } catch (error) {
+          button.disabled = false;
+          document.querySelector("#influence-feedback").textContent = `回应失败：${error.message}`;
+        }
+      });
+      item.append(button);
+    }
+    return item;
+  }));
+}
+
+function renderMemoryAlbum(companion) {
+  const album = document.querySelector("#memory-album");
+  const memories = companion.memoryAlbum();
+  if (memories.length === 0) {
+    album.replaceChildren(element("li", "empty-state", "角色还没有形成带来源的生活记忆。"));
+    return;
+  }
+  album.replaceChildren(...memories.map((memory) => {
+    const item = element("li", "memory-item");
+    item.append(
+      element("span", "memory-source", `第 ${memory.logicalTime} 日 · ${memory.kind}`),
+      element("p", "", memory.summary),
+      element("span", "memory-source", `来源：${memory.sourceEventIds.join("、")}`),
+    );
+    return item;
+  }));
+}
+
+function setupCompanionTabs() {
+  const tabs = [...document.querySelectorAll("[role=tab]")];
+  const activate = (tab) => {
+    tabs.forEach((candidate) => {
+      const active = candidate === tab;
+      candidate.classList.toggle("is-active", active);
+      candidate.setAttribute("aria-selected", String(active));
+      candidate.tabIndex = active ? 0 : -1;
+      document.querySelector(`#${candidate.getAttribute("aria-controls")}`).hidden = !active;
+    });
+  };
+  tabs.forEach((tab, index) => {
+    tab.addEventListener("click", () => activate(tab));
+    tab.addEventListener("keydown", (event) => {
+      if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+      event.preventDefault();
+      const nextIndex = event.key === "Home" ? 0 : event.key === "End" ? tabs.length - 1
+        : (index + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) % tabs.length;
+      activate(tabs[nextIndex]);
+      tabs[nextIndex].focus();
+    });
+  });
+}
+
+function setupCompanionUi(companion, companionStore) {
+  renderReturnSummary(companion);
+  renderBehaviors(companion);
+  renderHeartRoom(companion);
+  renderInfluences(companion, companionStore);
+  renderMemoryAlbum(companion);
+  setupCompanionTabs();
+
+  document.querySelector("#heart-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const button = form.querySelector("button[type=submit]");
+    const input = form.elements.message;
+    button.disabled = true;
+    try {
+      companion.sendHeartMessage({ text: input.value, logicalDay: 30 });
+      await companionStore.set(companion.snapshot());
+      input.value = "";
+      document.querySelector("#heart-feedback").textContent = "已保存在本机心室，未写入公开世界。";
+      renderHeartRoom(companion);
+    } catch (error) {
+      document.querySelector("#heart-feedback").textContent = `发送失败：${error.message}`;
+      input.focus();
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+  document.querySelector("#influence-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const button = form.querySelector("button[type=submit]");
+    button.disabled = true;
+    try {
+      companion.submitInfluence({ kind: form.elements.kind.value, text: form.elements.text.value, logicalDay: 30 });
+      await companionStore.set(companion.snapshot());
+      form.elements.text.value = "";
+      document.querySelector("#influence-feedback").textContent = "已留在本机，等待角色回应。";
+      renderInfluences(companion, companionStore);
+    } catch (error) {
+      document.querySelector("#influence-feedback").textContent = `未能留下：${error.message}`;
+      form.elements.text.focus();
+    } finally {
+      button.disabled = false;
+    }
+  });
 }
 
 class EchoTownScene extends Phaser.Scene {
@@ -112,7 +306,8 @@ class EchoTownScene extends Phaser.Scene {
 async function bootstrap() {
   const memoryStore = new IndexedDbMemoryStore();
   const offlineStore = new IndexedDbOfflineStore();
-  const [identity, manifest, worldContent, memorySnapshot, offlineSnapshot, offlineWorker] = await Promise.all([
+  const companionStore = new IndexedDbCompanionStore();
+  const [identity, manifest, worldContent, memorySnapshot, offlineSnapshot, companionSnapshot, offlineWorker] = await Promise.all([
     loadOrCreateIdentity(new IndexedDbVaultStore()),
     fetch("./version-manifest.json").then((response) => {
       if (!response.ok) throw new Error("版本清单不可用");
@@ -124,6 +319,7 @@ async function bootstrap() {
     }),
     memoryStore.get(),
     offlineStore.get(),
+    companionStore.get(),
     registerOfflineWorker(),
   ]);
   applyWorldContent(worldContent);
@@ -163,6 +359,23 @@ async function bootstrap() {
   });
   const personaIndex = Array.from(identity.actorId).reduce((sum, character) => sum + character.codePointAt(0), 0) % PERSONA_FIXTURES.length;
   const personaProfile = PERSONA_FIXTURES[personaIndex];
+  const companionInputs = {
+    ownerActorId: identity.actorId,
+    sourceActorId: `${personaProfile.id}-${societySeed}`,
+    personaProfile,
+    events: societySimulation.events,
+    claims: societySimulation.claims,
+    memories: societySimulation.memories,
+    acquaintances: societySimulation.acquaintances,
+  };
+  let companion = new CompanionSession(companionInputs);
+  if (companionSnapshot) {
+    try {
+      companion = new CompanionSession({ ...companionInputs, snapshot: companionSnapshot });
+    } catch {
+      await companionStore.clear();
+    }
+  }
   const memoryGraph = new MemoryGraph(memorySnapshot || undefined);
   const offlineQueue = new OfflineActivityQueue(offlineSnapshot || undefined);
   const privacyNetwork = new PrivacyNetworkGate({ endpoint: "./__echo-town-sync" });
@@ -215,6 +428,7 @@ async function bootstrap() {
     render: { antialias: false, pixelArt: true },
     scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
   });
+  setupCompanionUi(companion, companionStore);
   const verifyFictionUi = () => assessFictionalContent(document.body.innerText, "浏览器可见 UI");
   verifyFictionUi();
   window.__echoTownReady = {
@@ -238,6 +452,8 @@ async function bootstrap() {
     privacyWireFields: PUBLIC_WIRE_FIELD_PATHS,
     firstDecision,
     personaProfile,
+    companion,
+    companionStore,
     personaFixtures: PERSONA_FIXTURES,
     dilemmaFixtures: DILEMMA_FIXTURES,
     memoryGraph,

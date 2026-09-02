@@ -8,6 +8,7 @@
     <title>Echo Town · 回声镇</title>
   </head>
   <body>
+    <a class="skip-link" href="#companion">跳到角色陪伴区</a>
     <main id="shell">
       <header class="topbar">
         <div>
@@ -33,6 +34,82 @@
         </aside>
       </section>
       <p id="fiction-boundary" class="fiction-boundary" role="note">回声镇、其中的角色与事件均为虚构 AI 世界，不对应、仿冒或预测任何真实个人；如有相似，纯属巧合。</p>
+      <section id="companion" class="companion" aria-labelledby="companion-title">
+        <header class="companion-header">
+          <div>
+            <p class="eyebrow">COMPANION / 只属于你的观察席</p>
+            <h2 id="companion-title">与你的角色一起生活</h2>
+            <p class="companion-intro">看见角色如何生活、表达与记住。你可以陪伴和提出愿望，但角色始终保留自己的选择。</p>
+          </div>
+          <p class="local-seal"><span aria-hidden="true"></span>心室仅存于此浏览器</p>
+        </header>
+        <article id="return-summary" class="return-summary" aria-live="polite">
+          <p class="eyebrow">离开之后</p>
+          <h3>正在整理 30 日生活回声……</h3>
+        </article>
+        <div class="companion-tabs" role="tablist" aria-label="角色陪伴内容">
+          <button id="tab-observe" class="companion-tab is-active" type="button" role="tab" aria-selected="true" aria-controls="panel-observe">生活观察</button>
+          <button id="tab-heart" class="companion-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-heart" tabindex="-1">心室</button>
+          <button id="tab-memory" class="companion-tab" type="button" role="tab" aria-selected="false" aria-controls="panel-memory" tabindex="-1">记忆册</button>
+        </div>
+        <section id="panel-observe" class="companion-panel" role="tabpanel" aria-labelledby="tab-observe">
+          <div class="panel-heading">
+            <div><p class="eyebrow">30 个逻辑日</p><h3>二十段真实生活</h3></div>
+            <p>每一段都能追溯到世界事件、人格因素、关系或目标输入。</p>
+          </div>
+          <div class="behavior-layout">
+            <ol id="behavior-list" class="behavior-list" aria-label="角色行为列表"></ol>
+            <aside id="behavior-detail" class="behavior-detail" aria-live="polite">
+              <p class="eyebrow">为什么</p>
+              <h3>选择一段生活回声</h3>
+              <p>这里会展示角色当时真正使用的人格因素和事件来源，不补写事后理由。</p>
+            </aside>
+          </div>
+        </section>
+        <section id="panel-heart" class="companion-panel" role="tabpanel" aria-labelledby="tab-heart" hidden>
+          <div class="panel-heading">
+            <div><p class="eyebrow">PRIVATE / LOCAL</p><h3>心室</h3></div>
+            <p>对话、信件、愿望与礼物不会成为公开事实，也不会被发送到网络。</p>
+          </div>
+          <div class="heart-grid">
+            <div>
+              <div id="heart-log" class="heart-log" aria-live="polite"><p class="empty-state">还没有说过话。可以从今天过得怎么样开始。</p></div>
+              <form id="heart-form" class="companion-form">
+                <label for="heart-message">想对角色说的话</label>
+                <textarea id="heart-message" name="message" rows="3" maxlength="500" required aria-describedby="heart-help heart-feedback"></textarea>
+                <p id="heart-help" class="field-help">仅保存在本机；回复是私人陪伴，不会改写世界事实。</p>
+                <button type="submit" class="primary-button">发送到心室</button>
+                <p id="heart-feedback" class="form-feedback" aria-live="polite"></p>
+              </form>
+            </div>
+            <div class="influence-card">
+              <h3>轻轻影响，而不是命令</h3>
+              <p>最多保留 3 个尚未回应的输入。角色可以接受为参考，也可以拒绝。</p>
+              <form id="influence-form" class="companion-form">
+                <label for="influence-kind">陪伴方式</label>
+                <select id="influence-kind" name="kind">
+                  <option value="letter">写一封信</option>
+                  <option value="wish">提出愿望</option>
+                  <option value="gift">送一份礼物</option>
+                </select>
+                <label for="influence-text">内容</label>
+                <textarea id="influence-text" name="text" rows="3" maxlength="500" required aria-describedby="influence-help influence-feedback"></textarea>
+                <p id="influence-help" class="field-help">输入不会生成世界事件，角色回应后才结束一个待回应名额。</p>
+                <button type="submit" class="secondary-button">留给角色</button>
+                <p id="influence-feedback" class="form-feedback" aria-live="polite"></p>
+              </form>
+              <ul id="influence-list" class="influence-list" aria-label="陪伴影响记录"></ul>
+            </div>
+          </div>
+        </section>
+        <section id="panel-memory" class="companion-panel" role="tabpanel" aria-labelledby="tab-memory" hidden>
+          <div class="panel-heading">
+            <div><p class="eyebrow">SOURCE-BOUND</p><h3>记忆册</h3></div>
+            <p>只收录角色亲历且带来源事件的记忆，不把传闻自动写成事实。</p>
+          </div>
+          <ol id="memory-album" class="memory-album" aria-label="角色记忆列表"></ol>
+        </section>
+      </section>
     </main>
     <noscript>Echo Town 需要启用 JavaScript，但不需要安装原生应用。</noscript>
     <script type="module" src="/src/main.js"></script>

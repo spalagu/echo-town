@@ -143,6 +143,24 @@ test("反馈环、受众、affordance、回收和自然过期 mutation 全部判
   badAffordance.events.find((item) => item.actionAffordance).actionAffordance = "author_forced";
   assert.equal(validateSimulationResult(badAffordance, initialStates[0], [situations[0]]).ok, false);
 
+  const missingDecisionFactors = structuredClone(result);
+  missingDecisionFactors.events.find((item) => item.actionAffordance).decisionFactors = [];
+  assert.equal(validateSimulationResult(missingDecisionFactors, initialStates[0], [situations[0]]).ok, false);
+
+  const tamperedDecisionUtility = structuredClone(result);
+  tamperedDecisionUtility.events.find((item) => item.actionAffordance).decisionUtility += 1;
+  assert.equal(validateSimulationResult(tamperedDecisionUtility, initialStates[0], [situations[0]]).ok, false);
+
+  const inventedDecisionFactor = structuredClone(result);
+  inventedDecisionFactor.events.find((item) => item.actionAffordance).decisionFactors[0].path = "author.explanation";
+  assert.equal(validateSimulationResult(inventedDecisionFactor, initialStates[0], [situations[0]]).ok, false);
+
+  const tamperedFactorValue = structuredClone(result);
+  const profileFactor = tamperedFactorValue.events.find((item) => item.actionAffordance).decisionFactors
+    .find((factor) => factor.path !== "dilemma.contextWeight" && factor.path !== "playerSuggestion");
+  profileFactor.value = `伪造-${profileFactor.value}`;
+  assert.equal(validateSimulationResult(tamperedFactorValue, initialStates[0], [situations[0]]).ok, false);
+
   const audienceBypass = structuredClone(result);
   const child = audienceBypass.claims.find((item) => item.parentClaimId && audienceBypass.claims.find((parent) => parent.id === item.parentClaimId)?.speakerActorId !== item.speakerActorId);
   assert.ok(child);
