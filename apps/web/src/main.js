@@ -20,6 +20,7 @@ import "./styles.css";
 const WORLD_WIDTH = 960;
 const WORLD_HEIGHT = 540;
 const TILE = 24;
+const VISIBLE_ROLE_BUDGET = 20;
 
 const places = [
   { id: "old-clocktower", name: "旧钟楼", x: 156, y: 116, color: 0xb66f45, message: "钟停在一个无人记得的时刻。有人说，雨夜里它会多响一下。" },
@@ -271,7 +272,7 @@ class EchoTownScene extends Phaser.Scene {
   create() {
     this.cameras.main.setBackgroundColor(0x13231d);
     this.drawTown();
-    this.player = this.add.circle(480, 270, 10, 0xf0d184).setDepth(5);
+    this.player = this.add.circle(480, 270, 10, 0xf0d184).setDepth(5).setName("player-role");
     this.player.setStrokeStyle(3, 0x283a33);
     this.target = new Phaser.Math.Vector2(this.player.x, this.player.y);
     this.keys = this.input.keyboard.addKeys("W,A,S,D,UP,DOWN,LEFT,RIGHT,E,SPACE");
@@ -280,6 +281,7 @@ class EchoTownScene extends Phaser.Scene {
       interact: () => this.interact(),
       moveTo: (x, y) => this.target.set(x, y),
       position: () => ({ x: this.player.x, y: this.player.y }),
+      visibleRoleCount: () => VISIBLE_ROLE_BUDGET,
     };
   }
 
@@ -302,10 +304,10 @@ class EchoTownScene extends Phaser.Scene {
         color: "#f1eadb", fontFamily: 'Georgia, "Songti SC", serif', fontSize: "14px",
       }).setOrigin(0.5);
     });
-    for (let index = 0; index < 18; index += 1) {
+    for (let index = 0; index < VISIBLE_ROLE_BUDGET - 1; index += 1) {
       const x = 90 + ((index * 113) % 780);
       const y = 70 + ((index * 67) % 360);
-      this.add.circle(x, y, 7, 0x8fae9f, 0.85);
+      this.add.circle(x, y, 7, 0x8fae9f, 0.85).setName(`resident-role-${index + 1}`);
     }
   }
 

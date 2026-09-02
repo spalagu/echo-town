@@ -34,6 +34,7 @@
     "test:identity": "node --test packages/identity-vault/test/*.test.js",
     "test:identity-browser": "node tests/browser/ap02.mjs",
     "test:local-mind-browser": "node tests/browser/ap03.mjs",
+    "test:performance-browser": "node tests/browser/ap09.mjs",
     "test:local-mind": "node --test packages/local-mind/test/*.test.js",
     "test:latent-zone": "node --test packages/latent-zone/test/*.test.js",
     "test:latent-zone-scenarios": "node tests/latent-zone/ap20.mjs",
