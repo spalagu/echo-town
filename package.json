@@ -1,0 +1,15 @@
+{
+  "name": "echo-town",
+  "version": "0.0.0",
+  "private": false,
+  "description": "浏览器本地运行、由记忆与舆论驱动的非剧本化 AI 虚拟小镇",
+  "type": "module",
+  "scripts": {
+    "check": "node scripts/verify-governance.mjs",
+    "build": "node scripts/verify-governance.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "Apache-2.0"
+}

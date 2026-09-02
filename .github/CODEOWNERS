@@ -1,0 +1,7 @@
+# 初始化阶段由 spalagu 负责全部路径。后续维护者扩展必须通过 Pull Request。
+* @spalagu
+
+/.github/ @spalagu
+/crates/world-core/ @spalagu
+/schemas/ @spalagu
+/world/ @spalagu
