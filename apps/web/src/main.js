@@ -1,4 +1,5 @@
 import * as Phaser from "phaser";
+import { CapabilityController, describeCapabilityState } from "@echo-town/capability-state";
 import { IndexedDbVaultStore, loadOrCreateIdentity } from "@echo-town/identity-vault";
 import { LocalMindClient } from "@echo-town/local-mind";
 import { IndexedDbMemoryStore, MemoryGraph } from "@echo-town/memory-graph";
@@ -115,6 +116,14 @@ async function bootstrap() {
     actors: [{ actorId: identity.actorId, publicKeyHex, x: 0, y: 0 }],
   }));
   const localMind = new LocalMindClient();
+  const capabilityController = new CapabilityController({ network: "unavailable" });
+  capabilityController.subscribe((snapshot) => {
+    const activeFallbacks = ["render", "localMind", "network", "persistence"]
+      .filter((capability) => snapshot.state[capability] !== "ready")
+      .map((capability) => snapshot.details[capability].fallback)
+      .filter((fallback, index, values) => values.indexOf(fallback) === index);
+    document.querySelector("#capability-status").textContent = `能力状态：${describeCapabilityState(snapshot)} · ${activeFallbacks.join(" / ")}`;
+  });
   const personaIndex = Array.from(identity.actorId).reduce((sum, character) => sum + character.codePointAt(0), 0) % PERSONA_FIXTURES.length;
   const personaProfile = PERSONA_FIXTURES[personaIndex];
   const memoryGraph = new MemoryGraph(memorySnapshot || undefined);
@@ -168,6 +177,7 @@ async function bootstrap() {
     game,
     worldCore,
     localMind,
+    capabilityController,
     firstDecision,
     personaProfile,
     personaFixtures: PERSONA_FIXTURES,

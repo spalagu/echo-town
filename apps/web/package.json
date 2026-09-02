@@ -9,6 +9,7 @@
     "preview": "vite preview --host 127.0.0.1"
   },
   "dependencies": {
+    "@echo-town/capability-state": "*",
     "@echo-town/identity-vault": "*",
     "@echo-town/local-mind": "*",
     "@echo-town/memory-graph": "*",

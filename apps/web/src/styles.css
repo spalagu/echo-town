@@ -24,7 +24,7 @@ body { margin: 0; min-width: 320px; min-height: 100vh; background: radial-gradie
 .divider { height: 1px; margin: 24px 0; background: #38584c; }
 .hint { font-size: 13px; }
 kbd { padding: 2px 6px; border: 1px solid #627b70; border-bottom-width: 2px; border-radius: 5px; color: #e9eadf; background: #20352d; }
-.mind-status, .runtime-status { margin-top: 14px; color: #7fa28f !important; font: 11px/1.5 ui-monospace, SFMono-Regular, monospace; }
+.mind-status, .capability-status, .runtime-status { margin-top: 14px; color: #7fa28f !important; font: 11px/1.5 ui-monospace, SFMono-Regular, monospace; }
 
 @media (max-width: 800px) {
   .topbar { align-items: stretch; flex-direction: column; }
