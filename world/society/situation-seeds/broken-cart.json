@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "packType": "situation-seed",
+  "id": "broken-cart",
+  "title": "路口坏掉的货车",
+  "license": "CC-BY-4.0",
+  "attribution": { "author": "Echo Town contributors", "source": "项目原创", "modified": false },
+  "trigger": { "kind": "malfunction", "startTick": 9, "durationTicks": 14, "intensity": 53 },
+  "observations": [{ "fact": "车轴断裂，货物清单与散落箱数对不上", "visibility": "public", "tags": ["supply", "mismatch"] }],
+  "resourceDeltas": [{ "resourceId": "timber", "amount": -5, "expiresAfterTicks": 16 }],
+  "actionAffordances": ["repair", "count", "trade", "share_claim", "reroute"]
+}

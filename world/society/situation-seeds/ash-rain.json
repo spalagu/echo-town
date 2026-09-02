@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "packType": "situation-seed",
+  "id": "ash-rain",
+  "title": "不寻常的灰雨",
+  "license": "CC-BY-4.0",
+  "attribution": { "author": "Echo Town contributors", "source": "项目原创", "modified": false },
+  "trigger": { "kind": "weather", "startTick": 6, "durationTicks": 18, "intensity": 67 },
+  "observations": [
+    { "fact": "雨水在浅色布面留下可擦除的灰痕", "visibility": "public", "tags": ["weather", "uncertain"] },
+    { "fact": "不同屋檐下的灰痕深浅并不一致", "visibility": "local", "tags": ["difference", "evidence"] }
+  ],
+  "resourceDeltas": [{ "resourceId": "food", "amount": -7, "expiresAfterTicks": 20 }],
+  "actionAffordances": ["observe", "shelter", "compare", "share_claim", "experiment"]
+}

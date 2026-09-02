@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "packType": "initial-state",
+  "id": "clinic-renovation",
+  "title": "未完工的诊疗室",
+  "license": "CC-BY-4.0",
+  "attribution": { "author": "Echo Town contributors", "source": "项目原创", "modified": false },
+  "places": [
+    { "id": "old-clinic", "title": "旧诊疗室", "tags": ["care", "repair"] },
+    { "id": "river-market", "title": "河湾市场", "tags": ["supply", "trade"] },
+    { "id": "old-clocktower", "title": "旧钟楼", "tags": ["meeting", "signal"] }
+  ],
+  "resources": [
+    { "id": "food", "quantity": 38, "replenishesPerTick": 2, "expiresAfterTicks": 30 },
+    { "id": "timber", "quantity": 43, "replenishesPerTick": 0, "expiresAfterTicks": 0 },
+    { "id": "medicine", "quantity": 12, "replenishesPerTick": 1, "expiresAfterTicks": 45 }
+  ],
+  "observations": [
+    { "id": "open-roof", "fact": "诊疗室屋顶只修到一半，雨布压着不同人的工具", "placeId": "old-clinic", "visibility": "public", "salience": 82 },
+    { "id": "marked-crate", "fact": "市场角落药箱的封条日期比账面晚一天", "placeId": "river-market", "visibility": "local", "salience": 69 }
+  ],
+  "tensions": [
+    { "id": "treatment-or-reserve", "resourceId": "medicine", "pressure": 88, "uncertainty": 46 },
+    { "id": "roof-or-stalls", "resourceId": "timber", "pressure": 65, "uncertainty": 52 }
+  ],
+  "actionAffordances": ["observe", "share_claim", "repair", "care", "allocate", "prototype"]
+}

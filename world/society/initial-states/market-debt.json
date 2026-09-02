@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "packType": "initial-state",
+  "id": "market-debt",
+  "title": "互欠人情的集市",
+  "license": "CC-BY-4.0",
+  "attribution": { "author": "Echo Town contributors", "source": "项目原创", "modified": false },
+  "places": [
+    { "id": "river-market", "title": "河湾市场", "tags": ["trade", "rumor"] },
+    { "id": "echo-post", "title": "回声邮局", "tags": ["message", "trust"] },
+    { "id": "glass-greenhouse", "title": "玻璃温室", "tags": ["food", "work"] }
+  ],
+  "resources": [
+    { "id": "food", "quantity": 64, "replenishesPerTick": 3, "expiresAfterTicks": 35 },
+    { "id": "timber", "quantity": 21, "replenishesPerTick": 1, "expiresAfterTicks": 0 },
+    { "id": "medicine", "quantity": 24, "replenishesPerTick": 1, "expiresAfterTicks": 80 }
+  ],
+  "observations": [
+    { "id": "unclaimed-ledger", "fact": "市场公桌上出现一本没有署名的往来账", "placeId": "river-market", "visibility": "public", "salience": 73 },
+    { "id": "torn-receipt", "fact": "邮局废纸篓里有一张只剩日期的收据", "placeId": "echo-post", "visibility": "local", "salience": 54 }
+  ],
+  "tensions": [
+    { "id": "credit-or-proof", "resourceId": "food", "pressure": 57, "uncertainty": 81 },
+    { "id": "repair-credit", "resourceId": "timber", "pressure": 44, "uncertainty": 62 }
+  ],
+  "actionAffordances": ["observe", "share_claim", "trade", "mediate", "verify", "withdraw"]
+}

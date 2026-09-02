@@ -6,6 +6,7 @@ import { IndexedDbMemoryStore, MemoryGraph } from "@echo-town/memory-graph";
 import { IndexedDbOfflineStore, OfflineActivityQueue, registerOfflineWorker } from "@echo-town/offline-runtime";
 import { DILEMMA_FIXTURES, PERSONA_FIXTURES } from "@echo-town/persona-core";
 import { PrivacyNetworkGate, PUBLIC_WIRE_FIELD_PATHS } from "@echo-town/privacy-network";
+import { simulateSociety, validateSimulationResult } from "@echo-town/public-discourse";
 import initWorldCore, { WasmWorldCore } from "../../../crates/world-core/pkg/echo_town_world_core.js";
 import worldCoreUrl from "../../../crates/world-core/pkg/echo_town_world_core_bg.wasm?url";
 import "./styles.css";
@@ -125,6 +126,17 @@ async function bootstrap() {
     registerOfflineWorker(),
   ]);
   applyWorldContent(worldContent);
+  const socialFoundation = {
+    initialStatePacks: worldContent.packs.filter((pack) => pack.packType === "initial-state").length,
+    situationSeeds: worldContent.packs.filter((pack) => pack.packType === "situation-seed").length,
+  };
+  const initialStatePacks = worldContent.packs.filter((pack) => pack.packType === "initial-state").map((pack) => pack.content);
+  const situationSeeds = worldContent.packs.filter((pack) => pack.packType === "situation-seed").map((pack) => pack.content);
+  if (initialStatePacks.length === 0 || situationSeeds.length === 0) throw new Error("社会运行时缺少初态或情境");
+  const societySeed = Array.from(identity.actorId).reduce((sum, character) => (sum * 33 + character.codePointAt(0)) % 1_000_001, 0);
+  const societySimulation = simulateSociety(initialStatePacks[0], situationSeeds, societySeed);
+  const societyValidation = validateSimulationResult(societySimulation, initialStatePacks[0], situationSeeds);
+  if (!societyValidation.ok) throw new Error(`社会运行时不变量失败：${societyValidation.reason}`);
   document.querySelector("#actor-name").textContent = identity.profile.name;
   document.querySelector("#actor-id").textContent = identity.actorId.slice(0, 18);
   document.querySelector("#identity-mark").style.background = identity.profile.appearance.primaryColor;
@@ -188,7 +200,7 @@ async function bootstrap() {
     .join("；");
   document.querySelector("#mind-status").textContent = `角色心智：${localMindStatus.mode} · ${localMindStatus.execution} · 人格 ${personaProfile.id} 选择“${chosen.label}” · 理由：${strongestReasons} · 语气：${chosen.voice} · ${memoryGraph.allMemories().length} 条有来源记忆`;
   const offlineLabel = offlineWorker.controlled ? "离线缓存就绪" : "离线缓存未接管";
-  document.querySelector("#runtime-status").textContent = `本地身份、AI Worker、Wasm 核心与${offlineLabel} · ${manifest.version} · ${manifest.assets.length} 项静态资源`;
+  document.querySelector("#runtime-status").textContent = `本地身份、AI Worker、Wasm 核心与${offlineLabel} · 社会运行时 ${societySimulation.events.length} 个事件 / ${societySimulation.claims.length} 个观点 · ${socialFoundation.initialStatePacks} 个初态 / ${socialFoundation.situationSeeds} 个情境 · ${manifest.version} · ${manifest.assets.length} 项静态资源`;
 
   const game = new Phaser.Game({
     type: Phaser.AUTO,
@@ -204,6 +216,9 @@ async function bootstrap() {
     identity,
     manifest,
     worldContent,
+    socialFoundation,
+    societySimulation,
+    societyValidation,
     game,
     worldCore,
     localMind,

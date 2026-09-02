@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://spalagu.github.io/echo-town/schemas/initial-state-pack-v1.schema.json",
+  "title": "Echo Town InitialStatePack v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "packType", "id", "title", "license", "attribution", "places", "resources", "observations", "tensions", "actionAffordances"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "packType": { "const": "initial-state" },
+    "id": { "$ref": "#/$defs/id" },
+    "title": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "license": { "const": "CC-BY-4.0" },
+    "attribution": { "$ref": "#/$defs/attribution" },
+    "places": { "type": "array", "minItems": 2, "maxItems": 24, "items": { "$ref": "#/$defs/place" } },
+    "resources": { "type": "array", "minItems": 1, "maxItems": 24, "items": { "$ref": "#/$defs/resource" } },
+    "observations": { "type": "array", "minItems": 2, "maxItems": 48, "items": { "$ref": "#/$defs/observation" } },
+    "tensions": { "type": "array", "minItems": 1, "maxItems": 16, "items": { "$ref": "#/$defs/tension" } },
+    "actionAffordances": { "type": "array", "minItems": 4, "maxItems": 24, "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]{1,47}$" } }
+  },
+  "$defs": {
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,63}$" },
+    "attribution": { "type": "object", "additionalProperties": false, "required": ["author", "source", "modified"], "properties": { "author": { "type": "string", "minLength": 1, "maxLength": 120 }, "source": { "type": "string", "minLength": 1, "maxLength": 200 }, "modified": { "type": "boolean" } } },
+    "place": { "type": "object", "additionalProperties": false, "required": ["id", "title", "tags"], "properties": { "id": { "$ref": "#/$defs/id" }, "title": { "type": "string", "minLength": 1, "maxLength": 80 }, "tags": { "type": "array", "minItems": 1, "maxItems": 8, "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 32 } } } },
+    "resource": { "type": "object", "additionalProperties": false, "required": ["id", "quantity", "replenishesPerTick", "expiresAfterTicks"], "properties": { "id": { "$ref": "#/$defs/id" }, "quantity": { "type": "integer", "minimum": 1, "maximum": 10000 }, "replenishesPerTick": { "type": "integer", "minimum": 0, "maximum": 100 }, "expiresAfterTicks": { "type": "integer", "minimum": 0, "maximum": 10000 } } },
+    "observation": { "type": "object", "additionalProperties": false, "required": ["id", "fact", "placeId", "visibility", "salience"], "properties": { "id": { "$ref": "#/$defs/id" }, "fact": { "type": "string", "minLength": 1, "maxLength": 320 }, "placeId": { "$ref": "#/$defs/id" }, "visibility": { "enum": ["public", "local"] }, "salience": { "type": "integer", "minimum": 1, "maximum": 100 } } },
+    "tension": { "type": "object", "additionalProperties": false, "required": ["id", "resourceId", "pressure", "uncertainty"], "properties": { "id": { "$ref": "#/$defs/id" }, "resourceId": { "$ref": "#/$defs/id" }, "pressure": { "type": "integer", "minimum": 1, "maximum": 100 }, "uncertainty": { "type": "integer", "minimum": 1, "maximum": 100 } } }
+  }
+}

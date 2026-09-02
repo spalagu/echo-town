@@ -23,7 +23,9 @@ Echo Town 是一个浏览器本地运行的 2D AI 虚拟小镇。角色拥有稳
 - 12 个冻结人格与可解释 Persona Core；人格、价值、需要和心境会改变 Intent 排序，核心特质只会有边界地缓慢成长。
 - 四维 Capability 状态会显式呈现规则 AI、离线单人、世界暂停或仅当前会话等降级，不把缺失能力伪装成就绪。
 - 首次在线加载后，Service Worker 缓存版本化静态制品；断网重开仍可进入同一角色、记忆和离线单人世界。
-- 世界内容使用声明式 ContentPack v1；本地编译器拒绝剧本字段、远程脚本、HTML、可执行文件、缺失署名与超预算资产，并生成确定性内容清单。
+- 世界内容使用声明式 ContentPack v1、InitialStatePack v1 与 SituationSeed v1；本地编译器拒绝角色槽位、剧情阶段、预期结果、结局、远程脚本、HTML、可执行文件、缺失署名与超预算资产，并生成确定性内容清单。
+- Public Discourse 只从真实 Event 追加观点，保留来源、受众、转述和反驳；热度不是真值。HistoricalSummary 只能事后读取 Event，Planner exact-key 白名单拒绝摘要回灌。
+- 3 个初态包和 5 个情境种子会经过 12 人格 × 30 world seed 的确定性社会模拟；观察、角色自己的记忆、可见舆论、关系和资源张力会进入多轮决策，浏览器制品也会运行同一套社会运行时。社区只能贡献开端、约束和行动可能性，不能提交剧本结果。
 - Pull Request 门禁候选使用只读 token、零 secret、完整 SHA 固定的官方 Action 和七项独立检查；远端 Actions 与 Ruleset 尚未启用。
 - 内容寻址的静态构建清单；相同源码重复构建得到相同文件哈希。
 
@@ -56,6 +58,8 @@ npm run test:memory-scenarios
 npm run test:memory-browser
 npm run test:persona-scenarios
 npm run test:capability-scenarios
+npm run test:society-scenarios
+npm run test:society-browser
 npm run ci:workflow
 npm run ci:world-schema
 npm run ci:asset-budget

@@ -58,6 +58,8 @@ try {
   assert.equal(interaction.place, "旧钟楼");
   assert.equal(interaction.worldContent.schemaVersion, 1);
   assert.equal(interaction.worldContent.packs[0].content.entries[0].id, "old-clocktower");
+  const socialFoundation = await page.evaluate(() => window.__echoTownReady.socialFoundation);
+  assert.deepEqual(socialFoundation, { initialStatePacks: 3, situationSeeds: 5 });
   const manifest = await page.evaluate(() => window.__echoTownReady.manifest);
   const stateHash = await page.evaluate(() => window.__echoTownReady.stateHash);
   assert.ok(manifest.version && manifest.assets.length >= 4);
@@ -66,7 +68,7 @@ try {
   assert.ok(await page.locator("canvas").isVisible());
   await page.screenshot({ path: process.env.ECHO_TOWN_SCREENSHOT || "ap01-echo-town.png", fullPage: true });
   await browser.close();
-  console.log(JSON.stringify({ manifest: manifest.version, assets: manifest.assets.length, interaction, networkRequests: network.length, wasmStateHash: stateHash }));
+  console.log(JSON.stringify({ manifest: manifest.version, assets: manifest.assets.length, interaction, socialFoundation, networkRequests: network.length, wasmStateHash: stateHash }));
 } finally {
   server.kill("SIGTERM");
 }

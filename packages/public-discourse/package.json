@@ -1,0 +1,15 @@
+{
+  "name": "@echo-town/public-discourse",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.js",
+    "./contracts": "./src/contracts.js",
+    "./simulator": "./src/simulator.js"
+  },
+  "dependencies": {
+    "@echo-town/memory-graph": "*",
+    "@echo-town/persona-core": "*"
+  }
+}

@@ -29,6 +29,7 @@ jobs:
       - run: npm ci --ignore-scripts --registry=https://registry.npmjs.org
       - run: npm run ci:workflow
       - run: npm run test:unit
+      - run: npm run test:society-scenarios
 
   world-schema:
     runs-on: ubuntu-24.04
@@ -119,4 +120,6 @@ jobs:
       - run: rustup target add wasm32-unknown-unknown
       - run: cargo install wasm-bindgen-cli --version 0.2.126 --locked
       - run: npm ci --ignore-scripts --registry=https://registry.npmjs.org
+      - run: npx playwright install --with-deps chromium
       - run: npm run build
+      - run: npm run test:society-browser

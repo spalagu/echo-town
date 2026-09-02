@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { lstat, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { validateInitialStatePack, validateSituationSeed } from "../packages/public-discourse/src/contracts.js";
 
 const ROOT_KEYS = new Set(["schemaVersion", "packId", "title", "license", "attribution", "entries"]);
 const ATTRIBUTION_KEYS = new Set(["author", "source", "modified"]);
@@ -138,8 +139,15 @@ export async function inspectWorld(root) {
         if (assetLicenses.has(license.assetPath)) throw new Error(`资产许可旁车重复：${license.assetPath}`);
         assetLicenses.set(license.assetPath, { source: file.relative, license });
       } else {
-        const content = validateContentPack(parsed, file.relative);
+        const packType = parsed?.packType ?? "content-pack";
+        const content = packType === "initial-state"
+          ? validateInitialStatePack(parsed, file.relative)
+          : packType === "situation-seed"
+            ? validateSituationSeed(parsed, file.relative)
+            : validateContentPack(parsed, file.relative);
+        rejectForbiddenContent(content, file.relative);
         packs.push({
+          packType,
           source: file.relative,
           sha256: createHash("sha256").update(bytes).digest("hex"),
           bytes: bytes.length,
@@ -152,8 +160,10 @@ export async function inspectWorld(root) {
   if (packs.length === 0) throw new Error("world/ 至少需要一个 JSON 内容包");
   const packIds = new Set();
   for (const pack of packs) {
-    if (packIds.has(pack.content.packId)) throw new Error(`内容包 packId 重复：${pack.content.packId}`);
-    packIds.add(pack.content.packId);
+    const packId = pack.content.packId ?? pack.content.id;
+    const key = `${pack.packType}:${packId}`;
+    if (packIds.has(key)) throw new Error(`内容包标识重复：${key}`);
+    packIds.add(key);
   }
   for (const asset of binaryAssets) if (!assetLicenses.has(asset)) throw new Error(`${asset} 缺少同路径资产许可旁车`);
   for (const asset of assetLicenses.keys()) if (!binaryAssets.includes(asset)) throw new Error(`${asset} 的资产许可旁车没有对应文件`);

@@ -16,6 +16,7 @@
     "@echo-town/offline-runtime": "*",
     "@echo-town/persona-core": "*",
     "@echo-town/privacy-network": "*",
+    "@echo-town/public-discourse": "*",
     "phaser": "4.0.0"
   },
   "devDependencies": {

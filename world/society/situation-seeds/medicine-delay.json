@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "packType": "situation-seed",
+  "id": "medicine-delay",
+  "title": "迟到的药材箱",
+  "license": "CC-BY-4.0",
+  "attribution": { "author": "Echo Town contributors", "source": "项目原创", "modified": false },
+  "trigger": { "kind": "scarcity", "startTick": 11, "durationTicks": 28, "intensity": 79 },
+  "observations": [{ "fact": "预计清晨到达的药材箱直到午后仍未出现", "visibility": "public", "tags": ["medicine", "delay"] }],
+  "resourceDeltas": [{ "resourceId": "medicine", "amount": -6, "expiresAfterTicks": 24 }],
+  "actionAffordances": ["conserve", "search", "care", "trade", "share_claim"]
+}

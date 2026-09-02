@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "packType": "initial-state",
+  "id": "river-shortage",
+  "title": "低水位的河湾",
+  "license": "CC-BY-4.0",
+  "attribution": { "author": "Echo Town contributors", "source": "项目原创", "modified": false },
+  "places": [
+    { "id": "river-market", "title": "河湾市场", "tags": ["trade", "water"] },
+    { "id": "glass-greenhouse", "title": "玻璃温室", "tags": ["food", "community"] },
+    { "id": "old-clocktower", "title": "旧钟楼", "tags": ["signal", "memory"] }
+  ],
+  "resources": [
+    { "id": "food", "quantity": 46, "replenishesPerTick": 2, "expiresAfterTicks": 40 },
+    { "id": "timber", "quantity": 28, "replenishesPerTick": 1, "expiresAfterTicks": 0 },
+    { "id": "medicine", "quantity": 19, "replenishesPerTick": 0, "expiresAfterTicks": 60 }
+  ],
+  "observations": [
+    { "id": "low-waterline", "fact": "旧码头石阶露出了往年看不见的两层", "placeId": "river-market", "visibility": "public", "salience": 76 },
+    { "id": "private-cistern", "fact": "温室后墙的蓄水桶夜间仍有水声", "placeId": "glass-greenhouse", "visibility": "local", "salience": 61 }
+  ],
+  "tensions": [
+    { "id": "water-for-food", "resourceId": "food", "pressure": 72, "uncertainty": 58 },
+    { "id": "repair-or-store", "resourceId": "timber", "pressure": 49, "uncertainty": 67 }
+  ],
+  "actionAffordances": ["observe", "share_claim", "conserve", "trade", "repair", "experiment"]
+}
