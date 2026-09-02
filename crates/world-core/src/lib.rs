@@ -2,8 +2,10 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use echo_town_protocol::{
     ActorState, ArtifactEffectPayload, ArtifactEffectRule, ArtifactExperimentEnvelope,
-    ClaimShareEnvelope, ClaimSharePayload, IntentEnvelope, MAX_INTENT_BUDGET, PROTOCOL_VERSION,
-    WorldEvent, WorldEventPayload,
+    ClaimShareEnvelope, ClaimSharePayload, IntentEnvelope, LatentZoneAttemptEnvelope,
+    LatentZoneFactorEnvelope, LatentZoneFactorPayload, LatentZoneFactorRule, LatentZoneRule,
+    LocationStateChange, MAX_INTENT_BUDGET, PROTOCOL_VERSION, ReachableEdge, WorldEvent,
+    WorldEventPayload, ZoneRevealPayload,
 };
 use ed25519_dalek::{Signature, Verifier, VerifyingKey};
 use serde::{Deserialize, Serialize};
@@ -20,7 +22,12 @@ pub struct WorldState {
     pub logical_time: u64,
     pub authority_id: String,
     pub mystery_rules_hash: String,
+    pub latent_zone_rules_hash: String,
     pub event_log_hash: String,
+    pub revealed_zones: BTreeSet<String>,
+    pub reachable_edges: BTreeSet<ReachableEdge>,
+    pub location_states: BTreeMap<String, String>,
+    pub event_pool: BTreeSet<String>,
     pub actors: BTreeMap<String, ActorState>,
 }
 
@@ -49,6 +56,10 @@ pub enum RejectReason {
     WitnessSignature,
     Claim,
     Audience,
+    Phenomenon,
+    FactorSource,
+    FactorEventSource,
+    ZoneAlreadyRevealed,
 }
 
 impl RejectReason {
@@ -77,6 +88,10 @@ impl RejectReason {
             Self::WitnessSignature => "witness_signature",
             Self::Claim => "claim",
             Self::Audience => "audience",
+            Self::Phenomenon => "phenomenon",
+            Self::FactorSource => "factor_source",
+            Self::FactorEventSource => "factor_event_source",
+            Self::ZoneAlreadyRevealed => "zone_already_revealed",
         }
     }
 }
@@ -91,6 +106,17 @@ pub struct WorldCore {
     active_world_signals: BTreeSet<String>,
     actor_observed_fragments: BTreeMap<String, BTreeSet<String>>,
     actor_known_source_event_ids: BTreeMap<String, BTreeSet<String>>,
+    latent_zone_rules: Vec<LatentZoneRule>,
+    latent_zone_factor_rules: Vec<LatentZoneFactorRule>,
+    accepted_latent_factors: BTreeMap<String, AcceptedLatentFactor>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct AcceptedLatentFactor {
+    phenomenon_id: String,
+    factor_kind: String,
+    factor_value: String,
+    event_seq: u64,
 }
 
 impl WorldCore {
@@ -115,7 +141,14 @@ impl WorldCore {
                 logical_time: 0,
                 authority_id: authority_id.into(),
                 mystery_rules_hash: hex::encode(Sha256::digest(b"echo-town-no-mystery-rules-v1")),
+                latent_zone_rules_hash: hex::encode(Sha256::digest(
+                    b"echo-town-no-latent-zone-rules-v1",
+                )),
                 event_log_hash: hex::encode(Sha256::digest(b"echo-town-empty-event-log-v1")),
+                revealed_zones: BTreeSet::new(),
+                reachable_edges: BTreeSet::new(),
+                location_states: BTreeMap::new(),
+                event_pool: BTreeSet::new(),
                 actors: actor_states,
             },
             actor_public_keys,
@@ -126,6 +159,9 @@ impl WorldCore {
             active_world_signals: BTreeSet::new(),
             actor_observed_fragments: BTreeMap::new(),
             actor_known_source_event_ids: BTreeMap::new(),
+            latent_zone_rules: Vec::new(),
+            latent_zone_factor_rules: Vec::new(),
+            accepted_latent_factors: BTreeMap::new(),
         }
     }
 
@@ -176,6 +212,25 @@ impl WorldCore {
         ))
         .expect("mystery rules are serializable");
         self.state.mystery_rules_hash = hex::encode(Sha256::digest(rules_bytes));
+        self
+    }
+
+    pub fn with_latent_zone_rules(
+        mut self,
+        mut rules: Vec<LatentZoneRule>,
+        mut factor_rules: Vec<LatentZoneFactorRule>,
+    ) -> Self {
+        rules.sort_by(|left, right| {
+            (&left.zone_id, &left.alternative_id).cmp(&(&right.zone_id, &right.alternative_id))
+        });
+        factor_rules.sort_by(|left, right| left.trigger_id.cmp(&right.trigger_id));
+        let valid =
+            valid_latent_zone_configuration(&rules, &factor_rules, &self.accepted_source_event_ids);
+        self.latent_zone_rules = if valid { rules } else { Vec::new() };
+        self.latent_zone_factor_rules = if valid { factor_rules } else { Vec::new() };
+        let bytes = serde_json::to_vec(&(&self.latent_zone_rules, &self.latent_zone_factor_rules))
+            .expect("latent zone rules are serializable");
+        self.state.latent_zone_rules_hash = hex::encode(Sha256::digest(bytes));
         self
     }
 
@@ -354,6 +409,182 @@ impl WorldCore {
                     .chain([accepted_intent_hash.clone()]),
             );
         }
+        Ok(event)
+    }
+
+    pub fn apply_latent_zone_factor(
+        &mut self,
+        intent: &LatentZoneFactorEnvelope,
+    ) -> Result<WorldEvent, RejectReason> {
+        let rule = self.validate_latent_zone_factor(intent)?.clone();
+        let previous_state_hash = self.state_hash();
+        let accepted_intent_hash = hex::encode(Sha256::digest(
+            intent.signing_bytes().map_err(|_| RejectReason::Encoding)?,
+        ));
+        self.state
+            .actors
+            .get_mut(&intent.actor_id)
+            .expect("validated actor")
+            .last_seq = intent.seq;
+        self.state.logical_time += 1;
+        self.advance_event_log(&accepted_intent_hash);
+        let event_seq = self.events.len() as u64 + 1;
+        self.accepted_latent_factors.insert(
+            accepted_intent_hash.clone(),
+            AcceptedLatentFactor {
+                phenomenon_id: rule.phenomenon_id.clone(),
+                factor_kind: rule.factor_kind,
+                factor_value: rule.factor_value,
+                event_seq,
+            },
+        );
+        let next_state_hash = self.state_hash();
+        let event = WorldEvent {
+            schema_version: PROTOCOL_VERSION,
+            world_id: self.state.world_id.clone(),
+            zone_id: self.state.zone_id.clone(),
+            epoch: self.state.epoch,
+            event_seq,
+            previous_state_hash,
+            accepted_intent_hash: accepted_intent_hash.clone(),
+            event_type: "LatentZoneFactorObserved".to_owned(),
+            actor_id: intent.actor_id.clone(),
+            payload: WorldEventPayload::LatentZoneFactor(LatentZoneFactorPayload {
+                phenomenon_id: intent.phenomenon_id.clone(),
+                trigger_id: intent.trigger_id.clone(),
+                source_event_ids: intent.source_event_ids.clone(),
+                feedback_class: "ambiguous".to_owned(),
+            }),
+            next_state_hash,
+            authority_id: self.state.authority_id.clone(),
+        };
+        self.events.push(event.clone());
+        self.accepted_source_event_ids
+            .insert(accepted_intent_hash.clone());
+        self.remember_sources(&intent.actor_id, [accepted_intent_hash]);
+        Ok(event)
+    }
+
+    pub fn apply_latent_zone_attempt(
+        &mut self,
+        intent: &LatentZoneAttemptEnvelope,
+    ) -> Result<WorldEvent, RejectReason> {
+        self.validate_latent_zone_attempt(intent)?;
+        let previous_state_hash = self.state_hash();
+        let accepted_intent_hash = hex::encode(Sha256::digest(
+            intent.signing_bytes().map_err(|_| RejectReason::Encoding)?,
+        ));
+        let mut factors: Vec<_> = intent
+            .source_event_ids
+            .iter()
+            .filter_map(|source_id| self.accepted_latent_factors.get(source_id))
+            .filter(|factor| factor.phenomenon_id == intent.phenomenon_id)
+            .collect();
+        factors.sort_by_key(|factor| factor.event_seq);
+        let artifact_states: BTreeSet<_> = factors
+            .iter()
+            .filter(|factor| factor.factor_kind == "artifact")
+            .map(|factor| &factor.factor_value)
+            .collect();
+        let world_predicates: BTreeSet<_> = factors
+            .iter()
+            .filter(|factor| factor.factor_kind == "world")
+            .map(|factor| &factor.factor_value)
+            .collect();
+        let social_predicates: BTreeSet<_> = factors
+            .iter()
+            .filter(|factor| factor.factor_kind == "social")
+            .map(|factor| &factor.factor_value)
+            .collect();
+        let action_history: Vec<_> = factors
+            .iter()
+            .filter(|factor| factor.factor_kind == "action")
+            .map(|factor| factor.factor_value.clone())
+            .collect();
+        let matched = self
+            .latent_zone_rules
+            .iter()
+            .find(|rule| {
+                rule.phenomenon_id == intent.phenomenon_id
+                    && rule
+                        .required_artifact_states
+                        .iter()
+                        .all(|item| artifact_states.contains(item))
+                    && rule
+                        .required_world_predicates
+                        .iter()
+                        .all(|item| world_predicates.contains(item))
+                    && rule
+                        .required_social_predicates
+                        .iter()
+                        .all(|item| social_predicates.contains(item))
+                    && is_ordered_subsequence(&rule.required_action_sequence, &action_history)
+            })
+            .cloned();
+        self.state
+            .actors
+            .get_mut(&intent.actor_id)
+            .expect("validated actor")
+            .last_seq = intent.seq;
+        self.state.logical_time += 1;
+        self.advance_event_log(&accepted_intent_hash);
+        if let Some(rule) = &matched {
+            self.state.revealed_zones.insert(rule.zone_id.clone());
+            self.state
+                .reachable_edges
+                .extend(rule.reveal_edges.iter().cloned());
+            self.state.location_states.extend(
+                rule.location_state_changes
+                    .iter()
+                    .map(|change| (change.location_id.clone(), change.state.clone())),
+            );
+            self.state
+                .event_pool
+                .extend(rule.event_pool_adds.iter().cloned());
+        }
+        let next_state_hash = self.state_hash();
+        let payload = matched.as_ref().map_or_else(
+            || ZoneRevealPayload {
+                phenomenon_id: intent.phenomenon_id.clone(),
+                zone_id: None,
+                source_event_ids: intent.source_event_ids.clone(),
+                reveal_edges: Vec::new(),
+                location_state_changes: Vec::new(),
+                event_pool_adds: Vec::new(),
+                feedback_class: "faint".to_owned(),
+            },
+            |rule| ZoneRevealPayload {
+                phenomenon_id: intent.phenomenon_id.clone(),
+                zone_id: Some(rule.zone_id.clone()),
+                source_event_ids: intent.source_event_ids.clone(),
+                reveal_edges: rule.reveal_edges.clone(),
+                location_state_changes: rule.location_state_changes.clone(),
+                event_pool_adds: rule.event_pool_adds.clone(),
+                feedback_class: "resonant".to_owned(),
+            },
+        );
+        let event = WorldEvent {
+            schema_version: PROTOCOL_VERSION,
+            world_id: self.state.world_id.clone(),
+            zone_id: self.state.zone_id.clone(),
+            epoch: self.state.epoch,
+            event_seq: self.events.len() as u64 + 1,
+            previous_state_hash,
+            accepted_intent_hash: accepted_intent_hash.clone(),
+            event_type: if matched.is_some() {
+                "ZoneRevealed".to_owned()
+            } else {
+                "LatentZoneFeedback".to_owned()
+            },
+            actor_id: intent.actor_id.clone(),
+            payload: WorldEventPayload::ZoneReveal(payload),
+            next_state_hash,
+            authority_id: self.state.authority_id.clone(),
+        };
+        self.events.push(event.clone());
+        self.accepted_source_event_ids
+            .insert(accepted_intent_hash.clone());
+        self.remember_sources(&intent.actor_id, [accepted_intent_hash]);
         Ok(event)
     }
 
@@ -635,6 +866,180 @@ impl WorldCore {
         }
         verify_claim_share_signature(intent)
     }
+
+    fn validate_latent_zone_attempt(
+        &self,
+        intent: &LatentZoneAttemptEnvelope,
+    ) -> Result<(), RejectReason> {
+        if intent.schema_version != PROTOCOL_VERSION {
+            return Err(RejectReason::SchemaVersion);
+        }
+        if intent.world_id != self.state.world_id {
+            return Err(RejectReason::World);
+        }
+        if intent.zone_id != self.state.zone_id {
+            return Err(RejectReason::Zone);
+        }
+        let actor = self
+            .state
+            .actors
+            .get(&intent.actor_id)
+            .ok_or(RejectReason::UnknownActor)?;
+        let expected_key = self
+            .actor_public_keys
+            .get(&intent.actor_id)
+            .ok_or(RejectReason::UnknownActor)?;
+        if &intent.public_key_hex != expected_key {
+            return Err(RejectReason::PublicKey);
+        }
+        if intent.seq != actor.last_seq + 1 {
+            return Err(RejectReason::Sequence);
+        }
+        if intent.observed_state_hash != self.state_hash() {
+            return Err(RejectReason::ObservedState);
+        }
+        if intent.budget == 0 || intent.budget > MAX_INTENT_BUDGET {
+            return Err(RejectReason::Budget);
+        }
+        if intent.created_at_logical < self.state.logical_time {
+            return Err(RejectReason::LogicalTime);
+        }
+        let rules: Vec<_> = self
+            .latent_zone_rules
+            .iter()
+            .filter(|rule| rule.phenomenon_id == intent.phenomenon_id)
+            .collect();
+        if rules.is_empty() {
+            return Err(RejectReason::Phenomenon);
+        }
+        if rules
+            .iter()
+            .any(|rule| self.state.revealed_zones.contains(&rule.zone_id))
+        {
+            return Err(RejectReason::ZoneAlreadyRevealed);
+        }
+        if intent.source_event_ids.is_empty()
+            || intent
+                .source_event_ids
+                .iter()
+                .any(|event| !self.accepted_source_event_ids.contains(event))
+        {
+            return Err(RejectReason::SourceEvent);
+        }
+        if self
+            .actor_known_source_event_ids
+            .get(&intent.actor_id)
+            .is_none_or(|known| {
+                intent
+                    .source_event_ids
+                    .iter()
+                    .any(|event| !known.contains(event))
+            })
+        {
+            return Err(RejectReason::SourceVisibility);
+        }
+        if intent.source_event_ids.iter().any(|event| {
+            self.accepted_latent_factors
+                .get(event)
+                .is_none_or(|factor| factor.phenomenon_id != intent.phenomenon_id)
+        }) {
+            return Err(RejectReason::FactorEventSource);
+        }
+        verify_detached_signature(
+            &intent.public_key_hex,
+            &intent.signature_hex,
+            intent.signing_bytes(),
+        )
+    }
+
+    fn validate_latent_zone_factor(
+        &self,
+        intent: &LatentZoneFactorEnvelope,
+    ) -> Result<&LatentZoneFactorRule, RejectReason> {
+        if intent.schema_version != PROTOCOL_VERSION {
+            return Err(RejectReason::SchemaVersion);
+        }
+        if intent.world_id != self.state.world_id {
+            return Err(RejectReason::World);
+        }
+        if intent.zone_id != self.state.zone_id {
+            return Err(RejectReason::Zone);
+        }
+        let actor = self
+            .state
+            .actors
+            .get(&intent.actor_id)
+            .ok_or(RejectReason::UnknownActor)?;
+        let expected_key = self
+            .actor_public_keys
+            .get(&intent.actor_id)
+            .ok_or(RejectReason::UnknownActor)?;
+        if &intent.public_key_hex != expected_key {
+            return Err(RejectReason::PublicKey);
+        }
+        if intent.seq != actor.last_seq + 1 {
+            return Err(RejectReason::Sequence);
+        }
+        if intent.observed_state_hash != self.state_hash() {
+            return Err(RejectReason::ObservedState);
+        }
+        if intent.budget == 0 || intent.budget > MAX_INTENT_BUDGET {
+            return Err(RejectReason::Budget);
+        }
+        if intent.created_at_logical < self.state.logical_time {
+            return Err(RejectReason::LogicalTime);
+        }
+        let rule = self
+            .latent_zone_factor_rules
+            .iter()
+            .find(|rule| {
+                rule.phenomenon_id == intent.phenomenon_id && rule.trigger_id == intent.trigger_id
+            })
+            .ok_or(RejectReason::Phenomenon)?;
+        if intent.source_event_ids.is_empty()
+            || intent
+                .source_event_ids
+                .iter()
+                .any(|event| !self.accepted_source_event_ids.contains(event))
+        {
+            return Err(RejectReason::SourceEvent);
+        }
+        if self
+            .actor_known_source_event_ids
+            .get(&intent.actor_id)
+            .is_none_or(|known| {
+                intent
+                    .source_event_ids
+                    .iter()
+                    .any(|event| !known.contains(event))
+            })
+        {
+            return Err(RejectReason::SourceVisibility);
+        }
+        if rule
+            .required_source_event_ids
+            .iter()
+            .any(|event| !intent.source_event_ids.contains(event))
+        {
+            return Err(RejectReason::FactorSource);
+        }
+        verify_detached_signature(
+            &intent.public_key_hex,
+            &intent.signature_hex,
+            intent.signing_bytes(),
+        )?;
+        Ok(rule)
+    }
+}
+
+fn is_ordered_subsequence(required: &[String], actual: &[String]) -> bool {
+    let mut index = 0;
+    for action in actual {
+        if required.get(index) == Some(action) {
+            index += 1;
+        }
+    }
+    index == required.len()
 }
 
 fn valid_artifact_rules(rules: &[ArtifactEffectRule]) -> bool {
@@ -666,6 +1071,162 @@ fn valid_artifact_rules(rules: &[ArtifactEffectRule]) -> bool {
                 "faint" | "ambiguous" | "resonant"
             )
     })
+}
+
+type ZoneOutcome<'a> = (
+    usize,
+    &'a str,
+    &'a [ReachableEdge],
+    &'a [LocationStateChange],
+    &'a [String],
+);
+
+fn valid_latent_zone_rules(rules: &[LatentZoneRule]) -> bool {
+    if rules.is_empty() {
+        return true;
+    }
+    let mut alternative_ids = BTreeSet::new();
+    let mut factor_signatures = BTreeSet::new();
+    let mut zones: BTreeMap<&str, ZoneOutcome<'_>> = BTreeMap::new();
+    for rule in rules {
+        if rule.alternative_id.is_empty()
+            || rule.phenomenon_id.is_empty()
+            || rule.zone_id.is_empty()
+            || !alternative_ids.insert((&rule.zone_id, &rule.alternative_id))
+            || rule.required_artifact_states.is_empty()
+            || rule.required_world_predicates.is_empty()
+            || rule.required_social_predicates.is_empty()
+            || rule.required_action_sequence.len() < 2
+            || rule.reveal_edges.is_empty()
+            || rule
+                .reveal_edges
+                .iter()
+                .any(|edge| edge.from.is_empty() || edge.to != rule.zone_id)
+            || rule.location_state_changes.is_empty()
+            || rule
+                .location_state_changes
+                .iter()
+                .any(|change| change.location_id.is_empty() || change.state.is_empty())
+            || rule.event_pool_adds.is_empty()
+            || !factor_signatures.insert(canonical_factor_signature(rule))
+        {
+            return false;
+        }
+        match zones.get_mut(rule.zone_id.as_str()) {
+            Some((count, phenomenon, edges, changes, events)) => {
+                if *phenomenon != rule.phenomenon_id
+                    || *edges != rule.reveal_edges
+                    || *changes != rule.location_state_changes
+                    || *events != rule.event_pool_adds
+                {
+                    return false;
+                }
+                *count += 1;
+            }
+            None => {
+                zones.insert(
+                    &rule.zone_id,
+                    (
+                        1,
+                        &rule.phenomenon_id,
+                        &rule.reveal_edges,
+                        &rule.location_state_changes,
+                        &rule.event_pool_adds,
+                    ),
+                );
+            }
+        }
+    }
+    zones.values().all(|(count, ..)| *count >= 2)
+}
+
+fn canonical_factor_signature(
+    rule: &LatentZoneRule,
+) -> (String, Vec<String>, Vec<String>, Vec<String>, Vec<String>) {
+    let mut artifact_states = rule.required_artifact_states.clone();
+    let mut world_predicates = rule.required_world_predicates.clone();
+    let mut social_predicates = rule.required_social_predicates.clone();
+    artifact_states.sort();
+    world_predicates.sort();
+    social_predicates.sort();
+    (
+        rule.zone_id.clone(),
+        artifact_states,
+        world_predicates,
+        social_predicates,
+        rule.required_action_sequence.clone(),
+    )
+}
+
+fn valid_latent_zone_configuration(
+    rules: &[LatentZoneRule],
+    factor_rules: &[LatentZoneFactorRule],
+    accepted_source_event_ids: &BTreeSet<String>,
+) -> bool {
+    if rules.is_empty() && factor_rules.is_empty() {
+        return true;
+    }
+    if rules.is_empty() || factor_rules.is_empty() || !valid_latent_zone_rules(rules) {
+        return false;
+    }
+
+    let mut trigger_ids = BTreeSet::new();
+    let mut configured_factors = BTreeSet::new();
+    for rule in factor_rules {
+        if rule.trigger_id.is_empty()
+            || rule.phenomenon_id.is_empty()
+            || rule.factor_value.is_empty()
+            || !matches!(
+                rule.factor_kind.as_str(),
+                "artifact" | "world" | "social" | "action"
+            )
+            || !trigger_ids.insert(rule.trigger_id.as_str())
+            || rule.required_source_event_ids.is_empty()
+            || rule
+                .required_source_event_ids
+                .iter()
+                .any(|source| source.is_empty() || !accepted_source_event_ids.contains(source))
+            || rule
+                .required_source_event_ids
+                .iter()
+                .collect::<BTreeSet<_>>()
+                .len()
+                != rule.required_source_event_ids.len()
+        {
+            return false;
+        }
+        configured_factors.insert((
+            rule.phenomenon_id.as_str(),
+            rule.factor_kind.as_str(),
+            rule.factor_value.as_str(),
+        ));
+    }
+
+    let required_factors: BTreeSet<_> = rules
+        .iter()
+        .flat_map(|rule| {
+            rule.required_artifact_states
+                .iter()
+                .map(|value| (rule.phenomenon_id.as_str(), "artifact", value.as_str()))
+                .chain(
+                    rule.required_world_predicates
+                        .iter()
+                        .map(|value| (rule.phenomenon_id.as_str(), "world", value.as_str())),
+                )
+                .chain(
+                    rule.required_social_predicates
+                        .iter()
+                        .map(|value| (rule.phenomenon_id.as_str(), "social", value.as_str())),
+                )
+                .chain(
+                    rule.required_action_sequence
+                        .iter()
+                        .map(|value| (rule.phenomenon_id.as_str(), "action", value.as_str())),
+                )
+        })
+        .collect();
+
+    configured_factors == required_factors
 }
 
 fn verify_signature(intent: &IntentEnvelope) -> Result<(), RejectReason> {
@@ -750,6 +1311,10 @@ struct WasmConfig {
     active_world_signals: Vec<String>,
     #[serde(default)]
     actor_observed_fragments: BTreeMap<String, Vec<String>>,
+    #[serde(default)]
+    latent_zone_rules: Vec<LatentZoneRule>,
+    #[serde(default)]
+    latent_zone_factor_rules: Vec<LatentZoneFactorRule>,
 }
 
 #[derive(Deserialize)]
@@ -795,7 +1360,8 @@ impl WasmWorldCore {
                     config.fragment_sources,
                     config.active_world_signals,
                     config.actor_observed_fragments,
-                ),
+                )
+                .with_latent_zone_rules(config.latent_zone_rules, config.latent_zone_factor_rules),
         })
     }
 
@@ -828,6 +1394,28 @@ impl WasmWorldCore {
         let event = self
             .inner
             .apply_claim_share(&intent)
+            .map_err(|reason| JsError::new(reason.code()))?;
+        serde_json::to_string(&event).map_err(|error| JsError::new(&error.to_string()))
+    }
+
+    #[wasm_bindgen]
+    pub fn apply_latent_zone_attempt(&mut self, intent_json: &str) -> Result<String, JsError> {
+        let intent: LatentZoneAttemptEnvelope =
+            serde_json::from_str(intent_json).map_err(|error| JsError::new(&error.to_string()))?;
+        let event = self
+            .inner
+            .apply_latent_zone_attempt(&intent)
+            .map_err(|reason| JsError::new(reason.code()))?;
+        serde_json::to_string(&event).map_err(|error| JsError::new(&error.to_string()))
+    }
+
+    #[wasm_bindgen]
+    pub fn apply_latent_zone_factor(&mut self, intent_json: &str) -> Result<String, JsError> {
+        let intent: LatentZoneFactorEnvelope =
+            serde_json::from_str(intent_json).map_err(|error| JsError::new(&error.to_string()))?;
+        let event = self
+            .inner
+            .apply_latent_zone_factor(&intent)
             .map_err(|reason| JsError::new(reason.code()))?;
         serde_json::to_string(&event).map_err(|error| JsError::new(&error.to_string()))
     }

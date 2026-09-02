@@ -87,6 +87,174 @@ pub enum WorldEventPayload {
     Movement(IntentPayload),
     ArtifactEffect(ArtifactEffectPayload),
     ClaimShare(ClaimSharePayload),
+    LatentZoneFactor(LatentZoneFactorPayload),
+    ZoneReveal(ZoneRevealPayload),
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReachableEdge {
+    pub from: String,
+    pub to: String,
+    pub bidirectional: bool,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LocationStateChange {
+    pub location_id: String,
+    pub state: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LatentZoneRule {
+    pub alternative_id: String,
+    pub phenomenon_id: String,
+    pub zone_id: String,
+    pub required_artifact_states: Vec<String>,
+    pub required_world_predicates: Vec<String>,
+    pub required_social_predicates: Vec<String>,
+    pub required_action_sequence: Vec<String>,
+    pub reveal_edges: Vec<ReachableEdge>,
+    pub location_state_changes: Vec<LocationStateChange>,
+    pub event_pool_adds: Vec<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LatentZoneFactorRule {
+    pub trigger_id: String,
+    pub phenomenon_id: String,
+    pub factor_kind: String,
+    pub factor_value: String,
+    pub required_source_event_ids: Vec<String>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LatentZoneFactorPayload {
+    pub phenomenon_id: String,
+    pub trigger_id: String,
+    pub source_event_ids: Vec<String>,
+    pub feedback_class: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LatentZoneFactorEnvelope {
+    pub schema_version: u16,
+    pub world_id: String,
+    pub zone_id: String,
+    pub actor_id: String,
+    pub seq: u64,
+    pub observed_state_hash: String,
+    pub phenomenon_id: String,
+    pub trigger_id: String,
+    pub source_event_ids: Vec<String>,
+    pub budget: u16,
+    pub created_at_logical: u64,
+    pub public_key_hex: String,
+    pub signature_hex: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct LatentZoneFactorSigningEnvelope<'a> {
+    schema_version: u16,
+    world_id: &'a str,
+    zone_id: &'a str,
+    actor_id: &'a str,
+    seq: u64,
+    observed_state_hash: &'a str,
+    phenomenon_id: &'a str,
+    trigger_id: &'a str,
+    source_event_ids: &'a [String],
+    budget: u16,
+    created_at_logical: u64,
+    public_key_hex: &'a str,
+}
+
+impl LatentZoneFactorEnvelope {
+    pub fn signing_bytes(&self) -> Result<Vec<u8>, serde_json::Error> {
+        serde_json::to_vec(&LatentZoneFactorSigningEnvelope {
+            schema_version: self.schema_version,
+            world_id: &self.world_id,
+            zone_id: &self.zone_id,
+            actor_id: &self.actor_id,
+            seq: self.seq,
+            observed_state_hash: &self.observed_state_hash,
+            phenomenon_id: &self.phenomenon_id,
+            trigger_id: &self.trigger_id,
+            source_event_ids: &self.source_event_ids,
+            budget: self.budget,
+            created_at_logical: self.created_at_logical,
+            public_key_hex: &self.public_key_hex,
+        })
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ZoneRevealPayload {
+    pub phenomenon_id: String,
+    pub zone_id: Option<String>,
+    pub source_event_ids: Vec<String>,
+    pub reveal_edges: Vec<ReachableEdge>,
+    pub location_state_changes: Vec<LocationStateChange>,
+    pub event_pool_adds: Vec<String>,
+    pub feedback_class: String,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct LatentZoneAttemptEnvelope {
+    pub schema_version: u16,
+    pub world_id: String,
+    pub zone_id: String,
+    pub actor_id: String,
+    pub seq: u64,
+    pub observed_state_hash: String,
+    pub phenomenon_id: String,
+    pub source_event_ids: Vec<String>,
+    pub budget: u16,
+    pub created_at_logical: u64,
+    pub public_key_hex: String,
+    pub signature_hex: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct LatentZoneAttemptSigningEnvelope<'a> {
+    schema_version: u16,
+    world_id: &'a str,
+    zone_id: &'a str,
+    actor_id: &'a str,
+    seq: u64,
+    observed_state_hash: &'a str,
+    phenomenon_id: &'a str,
+    source_event_ids: &'a [String],
+    budget: u16,
+    created_at_logical: u64,
+    public_key_hex: &'a str,
+}
+
+impl LatentZoneAttemptEnvelope {
+    pub fn signing_bytes(&self) -> Result<Vec<u8>, serde_json::Error> {
+        serde_json::to_vec(&LatentZoneAttemptSigningEnvelope {
+            schema_version: self.schema_version,
+            world_id: &self.world_id,
+            zone_id: &self.zone_id,
+            actor_id: &self.actor_id,
+            seq: self.seq,
+            observed_state_hash: &self.observed_state_hash,
+            phenomenon_id: &self.phenomenon_id,
+            source_event_ids: &self.source_event_ids,
+            budget: self.budget,
+            created_at_logical: self.created_at_logical,
+            public_key_hex: &self.public_key_hex,
+        })
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

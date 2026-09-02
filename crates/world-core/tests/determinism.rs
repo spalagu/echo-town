@@ -2,7 +2,9 @@ use std::collections::BTreeMap;
 
 use echo_town_protocol::{
     ActorState, ArtifactEffectRule, ArtifactExperimentEnvelope, ArtifactWitnessAttestation,
-    ClaimShareEnvelope, IntentEnvelope, IntentPayload, PROTOCOL_VERSION, WorldEventPayload,
+    ClaimShareEnvelope, IntentEnvelope, IntentPayload, LatentZoneAttemptEnvelope,
+    LatentZoneFactorEnvelope, LatentZoneFactorRule, LatentZoneRule, LocationStateChange,
+    PROTOCOL_VERSION, ReachableEdge, WorldEventPayload,
 };
 use echo_town_world_core::{RejectReason, WorldCore};
 use ed25519_dalek::{Signer, SigningKey};
@@ -517,4 +519,208 @@ fn claim_propagation_is_a_signed_world_event_with_real_audience_and_sources() {
         hidden_source_core.apply_claim_share(&invisible_source),
         Err(RejectReason::SourceVisibility)
     );
+}
+
+#[test]
+fn latent_zone_requires_signed_factor_events_and_updates_world_atomically() {
+    let (signing_key, public_key_hex) = key_material();
+    let mut raw_source_core = latent_zone_core(&public_key_hex);
+    let raw_source_attempt = signed_latent_attempt(
+        &signing_key,
+        &public_key_hex,
+        1,
+        raw_source_core.state_hash(),
+        vec!["source-artifact-a".to_owned()],
+    );
+    assert_eq!(
+        raw_source_core.apply_latent_zone_attempt(&raw_source_attempt),
+        Err(RejectReason::FactorEventSource)
+    );
+    let mut left = latent_zone_core(&public_key_hex);
+    let mut right = latent_zone_core(&public_key_hex);
+    let factors = [
+        ("artifact-a", "source-artifact-a"),
+        ("world-a", "source-world-a"),
+        ("social-a", "source-social-a"),
+        ("action-a1", "source-action-a1"),
+        ("action-a2", "source-action-a2"),
+    ];
+    let mut source_event_ids = Vec::new();
+    for (index, (trigger_id, source_id)) in factors.into_iter().enumerate() {
+        let intent = signed_latent_factor(
+            &signing_key,
+            &public_key_hex,
+            index as u64 + 1,
+            left.state_hash(),
+            trigger_id,
+            vec![source_id],
+        );
+        let left_event = left.apply_latent_zone_factor(&intent).unwrap();
+        let right_event = right.apply_latent_zone_factor(&intent).unwrap();
+        assert_eq!(left_event, right_event);
+        assert_eq!(left_event.event_type, "LatentZoneFactorObserved");
+        source_event_ids.push(left_event.accepted_intent_hash);
+    }
+
+    let attempt = signed_latent_attempt(
+        &signing_key,
+        &public_key_hex,
+        6,
+        left.state_hash(),
+        source_event_ids,
+    );
+    let left_event = left.apply_latent_zone_attempt(&attempt).unwrap();
+    let right_event = right.apply_latent_zone_attempt(&attempt).unwrap();
+    assert_eq!(left_event, right_event);
+    assert_eq!(left_event.event_type, "ZoneRevealed");
+    assert_eq!(left.state_hash(), right.state_hash());
+    assert!(left.state().revealed_zones.contains("latent-room"));
+    assert!(left.state().reachable_edges.contains(&ReachableEdge {
+        from: "clocktower".to_owned(),
+        to: "latent-room".to_owned(),
+        bidirectional: true,
+    }));
+    assert_eq!(
+        left.state().location_states.get("clocktower"),
+        Some(&"edge-shifted".to_owned())
+    );
+    assert!(left.state().event_pool.contains("interval-routine"));
+
+    let mut wrong_source = signed_latent_factor(
+        &signing_key,
+        &public_key_hex,
+        1,
+        latent_zone_core(&public_key_hex).state_hash(),
+        "artifact-a",
+        vec!["source-world-a"],
+    );
+    let mut rejected = latent_zone_core(&public_key_hex);
+    assert_eq!(
+        rejected.apply_latent_zone_factor(&wrong_source),
+        Err(RejectReason::FactorSource)
+    );
+    wrong_source.source_event_ids = vec!["source-artifact-a".to_owned()];
+    assert_eq!(
+        rejected.apply_latent_zone_factor(&wrong_source),
+        Err(RejectReason::Signature)
+    );
+}
+
+fn latent_zone_core(public_key_hex: &str) -> WorldCore {
+    let factor_specs = [
+        ("artifact-a", "artifact", "artifact:a", "source-artifact-a"),
+        ("world-a", "world", "weather:a", "source-world-a"),
+        ("social-a", "social", "trust:a", "source-social-a"),
+        ("action-a1", "action", "action_a1", "source-action-a1"),
+        ("action-a2", "action", "action_a2", "source-action-a2"),
+        ("artifact-b", "artifact", "artifact:b", "source-artifact-b"),
+        ("world-b", "world", "weather:b", "source-world-b"),
+        ("social-b", "social", "trust:b", "source-social-b"),
+        ("action-b1", "action", "action_b1", "source-action-b1"),
+        ("action-b2", "action", "action_b2", "source-action-b2"),
+    ];
+    let accepted_sources: Vec<_> = factor_specs
+        .iter()
+        .map(|(_, _, _, source)| (*source).to_owned())
+        .collect();
+    let fragment_sources: BTreeMap<_, _> = accepted_sources
+        .iter()
+        .enumerate()
+        .map(|(index, source)| (format!("fragment-{index}"), source.clone()))
+        .collect();
+    let observed_fragments = fragment_sources.keys().cloned().collect();
+    let outcome_edges = vec![ReachableEdge {
+        from: "clocktower".to_owned(),
+        to: "latent-room".to_owned(),
+        bidirectional: true,
+    }];
+    let outcome_changes = vec![LocationStateChange {
+        location_id: "clocktower".to_owned(),
+        state: "edge-shifted".to_owned(),
+    }];
+    let rule = |alternative: &str, suffix: &str| LatentZoneRule {
+        alternative_id: alternative.to_owned(),
+        phenomenon_id: "inconsistent-return".to_owned(),
+        zone_id: "latent-room".to_owned(),
+        required_artifact_states: vec![format!("artifact:{suffix}")],
+        required_world_predicates: vec![format!("weather:{suffix}")],
+        required_social_predicates: vec![format!("trust:{suffix}")],
+        required_action_sequence: vec![format!("action_{suffix}1"), format!("action_{suffix}2")],
+        reveal_edges: outcome_edges.clone(),
+        location_state_changes: outcome_changes.clone(),
+        event_pool_adds: vec!["interval-routine".to_owned()],
+    };
+    let factor_rules = factor_specs
+        .into_iter()
+        .map(|(trigger, kind, value, source)| LatentZoneFactorRule {
+            trigger_id: trigger.to_owned(),
+            phenomenon_id: "inconsistent-return".to_owned(),
+            factor_kind: kind.to_owned(),
+            factor_value: value.to_owned(),
+            required_source_event_ids: vec![source.to_owned()],
+        })
+        .collect();
+    core(public_key_hex)
+        .with_artifact_rules(
+            Vec::new(),
+            accepted_sources,
+            fragment_sources,
+            Vec::new(),
+            BTreeMap::from([("actor-fixture".to_owned(), observed_fragments)]),
+        )
+        .with_latent_zone_rules(vec![rule("path-a", "a"), rule("path-b", "b")], factor_rules)
+}
+
+fn signed_latent_factor(
+    signing_key: &SigningKey,
+    public_key_hex: &str,
+    seq: u64,
+    observed_state_hash: String,
+    trigger_id: &str,
+    source_event_ids: Vec<&str>,
+) -> LatentZoneFactorEnvelope {
+    let mut intent = LatentZoneFactorEnvelope {
+        schema_version: PROTOCOL_VERSION,
+        world_id: "echo-town-test".to_owned(),
+        zone_id: "center".to_owned(),
+        actor_id: "actor-fixture".to_owned(),
+        seq,
+        observed_state_hash,
+        phenomenon_id: "inconsistent-return".to_owned(),
+        trigger_id: trigger_id.to_owned(),
+        source_event_ids: source_event_ids.into_iter().map(str::to_owned).collect(),
+        budget: 3,
+        created_at_logical: seq - 1,
+        public_key_hex: public_key_hex.to_owned(),
+        signature_hex: String::new(),
+    };
+    let signature: ed25519_dalek::Signature = signing_key.sign(&intent.signing_bytes().unwrap());
+    intent.signature_hex = hex::encode(signature.to_bytes());
+    intent
+}
+
+fn signed_latent_attempt(
+    signing_key: &SigningKey,
+    public_key_hex: &str,
+    seq: u64,
+    observed_state_hash: String,
+    source_event_ids: Vec<String>,
+) -> LatentZoneAttemptEnvelope {
+    let mut intent = LatentZoneAttemptEnvelope {
+        schema_version: PROTOCOL_VERSION,
+        world_id: "echo-town-test".to_owned(),
+        zone_id: "center".to_owned(),
+        actor_id: "actor-fixture".to_owned(),
+        seq,
+        observed_state_hash,
+        phenomenon_id: "inconsistent-return".to_owned(),
+        source_event_ids,
+        budget: 3,
+        created_at_logical: seq - 1,
+        public_key_hex: public_key_hex.to_owned(),
+        signature_hex: String::new(),
+    };
+    let signature: ed25519_dalek::Signature = signing_key.sign(&intent.signing_bytes().unwrap());
+    intent.signature_hex = hex::encode(signature.to_bytes());
+    intent
 }

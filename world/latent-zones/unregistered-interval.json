@@ -1,0 +1,53 @@
+{
+  "schemaVersion": 1,
+  "packType": "latent-zone",
+  "id": "unregistered-interval",
+  "title": "几种不一致的回返",
+  "license": "CC-BY-4.0",
+  "attribution": { "author": "Echo Town Contributors", "source": "world/latent-zones/unregistered-interval.json", "modified": false },
+  "zoneId": "unregistered-interval-zone",
+  "initialReachability": "latent",
+  "thresholdAlternatives": [
+    {
+      "id": "mist-and-ledger",
+      "artifactStates": ["clouded-vial:mist-retained"],
+      "worldPredicates": ["weather:morning-fog"],
+      "socialPredicates": ["witnesses:two-present"],
+      "actionSequence": ["compare_marks", "wait_in_silence"]
+    },
+    {
+      "id": "dusk-and-echo",
+      "artifactStates": ["quiet-tuning-token:warm"],
+      "worldPredicates": ["light:long-dusk"],
+      "socialPredicates": ["trust:mutual"],
+      "actionSequence": ["pass_between", "trace_return"]
+    }
+  ],
+  "evidenceAffordances": [
+    { "triggerId": "vial-kept-mist", "factorKind": "artifact", "factorValue": "clouded-vial:mist-retained", "sourceEventIds": ["event-vial-kept-mist"], "publicFeedback": "瓶壁留下了一层稍纵即逝的雾。" },
+    { "triggerId": "morning-fog-recorded", "factorKind": "world", "factorValue": "weather:morning-fog", "sourceEventIds": ["event-morning-fog"], "publicFeedback": "清晨的能见度与旧记录相近。" },
+    { "triggerId": "two-stayed-nearby", "factorKind": "social", "factorValue": "witnesses:two-present", "sourceEventIds": ["event-two-stayed"], "publicFeedback": "有不止一人记下了这次偏差。" },
+    { "triggerId": "marks-compared", "factorKind": "action", "factorValue": "compare_marks", "sourceEventIds": ["event-ledgers-present"], "publicFeedback": "两份记号没有给出相同的距离。" },
+    { "triggerId": "silence-observed", "factorKind": "action", "factorValue": "wait_in_silence", "sourceEventIds": ["event-quiet-watch"], "publicFeedback": "安静持续了一会儿，脚步声似乎多了一次回返。" },
+    { "triggerId": "token-held-warmth", "factorKind": "artifact", "factorValue": "quiet-tuning-token:warm", "sourceEventIds": ["event-token-warmth"], "publicFeedback": "薄片在无人触碰后仍残留微温。" },
+    { "triggerId": "long-dusk-recorded", "factorKind": "world", "factorValue": "light:long-dusk", "sourceEventIds": ["event-long-dusk"], "publicFeedback": "黄昏的影子比前一日停留得更久。" },
+    { "triggerId": "mutual-trust-observed", "factorKind": "social", "factorValue": "trust:mutual", "sourceEventIds": ["event-mutual-trust"], "publicFeedback": "两人愿意把各自的记录交给对方保管。" },
+    { "triggerId": "token-passed", "factorKind": "action", "factorValue": "pass_between", "sourceEventIds": ["event-token-present"], "publicFeedback": "物件转手时，远处出现了一次无法定位的轻响。" },
+    { "triggerId": "return-traced", "factorKind": "action", "factorValue": "trace_return", "sourceEventIds": ["event-return-record"], "publicFeedback": "重走的路线与第一次留下的步数不一致。" }
+  ],
+  "onSatisfied": {
+    "revealEdges": [{ "from": "old-clocktower", "to": "unregistered-interval-zone", "bidirectional": true }],
+    "locationStateChanges": [{ "locationId": "old-clocktower", "state": "edge-shifted" }],
+    "eventPoolAdds": ["interval-routine", "misdelivered-visit"]
+  },
+  "eventPool": [
+    { "id": "interval-routine", "phenomena": ["有人开始把多出的步数纳入日常路线记录。"], "actionAffordances": ["observe_route", "compare_notes", "leave_unchanged"] },
+    { "id": "misdelivered-visit", "phenomena": ["一份没有明确收件人的拜访记录出现在公共册页中。"], "actionAffordances": ["ask_about_visit", "archive_note", "share_uncertainty"] }
+  ],
+  "publicProjection": {
+    "phenomenonId": "inconsistent-return",
+    "phenomena": ["相同的短路偶尔比记忆中多出几步。", "两份独立记录对同一段回程给出不同的耗时。"],
+    "observableActions": ["compare_marks", "wait_in_silence", "pass_between", "trace_return", "leave_unchanged"],
+    "feedbackClasses": ["faint", "ambiguous", "resonant"]
+  }
+}
