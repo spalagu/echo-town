@@ -3,6 +3,7 @@ import { CapabilityController, describeCapabilityState } from "@echo-town/capabi
 import { IndexedDbVaultStore, loadOrCreateIdentity } from "@echo-town/identity-vault";
 import { LocalMindClient } from "@echo-town/local-mind";
 import { IndexedDbMemoryStore, MemoryGraph } from "@echo-town/memory-graph";
+import { IndexedDbOfflineStore, OfflineActivityQueue, registerOfflineWorker } from "@echo-town/offline-runtime";
 import { DILEMMA_FIXTURES, PERSONA_FIXTURES } from "@echo-town/persona-core";
 import initWorldCore, { WasmWorldCore } from "../../../crates/world-core/pkg/echo_town_world_core.js";
 import worldCoreUrl from "../../../crates/world-core/pkg/echo_town_world_core_bg.wasm?url";
@@ -95,13 +96,16 @@ class EchoTownScene extends Phaser.Scene {
 
 async function bootstrap() {
   const memoryStore = new IndexedDbMemoryStore();
-  const [identity, manifest, memorySnapshot] = await Promise.all([
+  const offlineStore = new IndexedDbOfflineStore();
+  const [identity, manifest, memorySnapshot, offlineSnapshot, offlineWorker] = await Promise.all([
     loadOrCreateIdentity(new IndexedDbVaultStore()),
     fetch("./version-manifest.json").then((response) => {
       if (!response.ok) throw new Error("版本清单不可用");
       return response.json();
     }),
     memoryStore.get(),
+    offlineStore.get(),
+    registerOfflineWorker(),
   ]);
   document.querySelector("#actor-name").textContent = identity.profile.name;
   document.querySelector("#actor-id").textContent = identity.actorId.slice(0, 18);
@@ -127,6 +131,7 @@ async function bootstrap() {
   const personaIndex = Array.from(identity.actorId).reduce((sum, character) => sum + character.codePointAt(0), 0) % PERSONA_FIXTURES.length;
   const personaProfile = PERSONA_FIXTURES[personaIndex];
   const memoryGraph = new MemoryGraph(memorySnapshot || undefined);
+  const offlineQueue = new OfflineActivityQueue(offlineSnapshot || undefined);
   if (!memorySnapshot) {
     memoryGraph.remember({
       id: `identity-${identity.actorId}`,
@@ -159,7 +164,8 @@ async function bootstrap() {
     visibleEvents: [],
   }, { personaProfile, dilemma: DILEMMA_FIXTURES[0] });
   document.querySelector("#mind-status").textContent = `角色心智：${localMindStatus.mode} · ${localMindStatus.execution} · 人格已就绪 · ${memoryGraph.allMemories().length} 条有来源记忆`;
-  document.querySelector("#runtime-status").textContent = `本地身份、AI Worker 与 Wasm 核心就绪 · ${manifest.version} · ${manifest.assets.length} 项静态资源`;
+  const offlineLabel = offlineWorker.controlled ? "离线缓存就绪" : "离线缓存未接管";
+  document.querySelector("#runtime-status").textContent = `本地身份、AI Worker、Wasm 核心与${offlineLabel} · ${manifest.version} · ${manifest.assets.length} 项静态资源`;
 
   const game = new Phaser.Game({
     type: Phaser.AUTO,
@@ -178,6 +184,9 @@ async function bootstrap() {
     worldCore,
     localMind,
     capabilityController,
+    offlineQueue,
+    offlineStore,
+    offlineWorker,
     firstDecision,
     personaProfile,
     personaFixtures: PERSONA_FIXTURES,

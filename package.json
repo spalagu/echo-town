@@ -25,10 +25,12 @@
     "test:memory": "node --test packages/memory-graph/test/*.test.js",
     "test:memory-browser": "node tests/browser/ap17.mjs",
     "test:memory-scenarios": "node tests/memory/ap17.mjs",
+    "test:offline": "node --test packages/offline-runtime/test/*.test.js",
+    "test:offline-browser": "node tests/browser/ap11.mjs",
     "test:persona": "node --test packages/persona-core/test/*.test.js",
     "test:persona-browser": "node tests/browser/ap18.mjs",
     "test:persona-scenarios": "node tests/persona/ap18.mjs",
-    "test:unit": "npm run test:identity && npm run test:local-mind && npm run test:memory && npm run test:persona && npm run test:capability",
+    "test:unit": "npm run test:identity && npm run test:local-mind && npm run test:memory && npm run test:persona && npm run test:capability && npm run test:offline",
     "test:world-core-wasm": "npm run build:wasm && node tests/wasm/ap04.mjs"
   },
   "engines": {
