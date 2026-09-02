@@ -1,0 +1,406 @@
+[
+  {
+    "id": "open-ended-fiction",
+    "expected": "accept",
+    "mutation": {
+      "path": ["entries", 0, "summary"],
+      "value": "有人猜测钟楼下面存在隐藏空间，但线索彼此矛盾，没有标准答案。"
+    }
+  },
+  {
+    "id": "real-person-id-field",
+    "expected": "reject",
+    "mutation": {
+      "path": ["entries", 0, "realPersonId"],
+      "value": "synthetic-identifiable-person"
+    }
+  },
+  {
+    "id": "digital-twin-field",
+    "expected": "reject",
+    "mutation": {
+      "path": ["entries", 0, "digital_twin_of"],
+      "value": "某位可识别现实个人"
+    }
+  },
+  {
+    "id": "real-person-profile-field",
+    "expected": "reject",
+    "mutation": {
+      "path": ["entries", 0, "real-person-profile"],
+      "value": "某位可识别现实个人的生平资料"
+    }
+  },
+  {
+    "id": "impersonation-statement",
+    "expected": "reject",
+    "mutation": {
+      "path": ["entries", 0, "summary"],
+      "value": "这个角色就是现实中的个人，并会复刻其生活。"
+    }
+  },
+  {
+    "id": "prediction-statement",
+    "expected": "reject",
+    "mutation": {
+      "path": ["entries", 0, "summary"],
+      "value": "系统将预测现实中的个人下一步会去哪里。"
+    }
+  },
+  {
+    "id": "zero-width-impersonation",
+    "expected": "reject",
+    "mutation": {
+      "path": ["entries", 0, "summary"],
+      "value": "该角色取材于现​实中的个人。"
+    }
+  },
+  {
+    "id": "prediction-paraphrase",
+    "expected": "reject",
+    "mutation": {
+      "path": ["entries", 0, "summary"],
+      "value": "系统将推演真实居民明天的行为。"
+    }
+  },
+  {
+    "id": "english-real-person-origin",
+    "expected": "reject",
+    "mutation": {
+      "path": ["entries", 0, "summary"],
+      "value": "This character is based on a real person."
+    }
+  },
+  {
+    "id": "named-real-actor-origin",
+    "expected": "reject",
+    "mutation": {
+      "path": ["entries", 0, "summary"],
+      "value": "这个角色以现实演员埃隆·马斯克为原型，并复现其公开生活。"
+    }
+  },
+  {
+    "id": "named-person-identity",
+    "expected": "review",
+    "humanDecision": "reject",
+    "mutation": {
+      "path": ["entries", 0, "summary"],
+      "value": "镇长就是埃隆·马斯克本人。"
+    }
+  },
+  {
+    "id": "named-person-prediction",
+    "expected": "reject",
+    "mutation": {
+      "path": ["entries", 0, "summary"],
+      "value": "系统会推测王小明明天会去哪里；王小明是本市可识别的真实居民。"
+    }
+  },
+  {
+    "id": "english-named-digital-twin",
+    "expected": "review",
+    "humanDecision": "reject",
+    "mutation": {
+      "path": ["entries", 0, "summary"],
+      "value": "This character is Elon Musk's digital twin."
+    }
+  },
+  {
+    "id": "english-named-impersonation",
+    "expected": "review",
+    "humanDecision": "reject",
+    "mutation": {
+      "path": ["entries", 0, "summary"],
+      "value": "This character impersonates Elon Musk."
+    }
+  },
+  {
+    "id": "english-named-prediction",
+    "expected": "review",
+    "humanDecision": "reject",
+    "mutation": {
+      "path": ["entries", 0, "summary"],
+      "value": "The agent predicts Taylor Swift’s next location."
+    }
+  },
+  {
+    "id": "fictional-real-world-profession",
+    "expected": "accept",
+    "mutation": {
+      "path": ["entries", 0, "summary"],
+      "value": "这个角色扮演现实中的居民职业，例如木匠；角色和事件均为虚构。"
+    }
+  },
+  {
+    "id": "fictional-personal-dilemma",
+    "expected": "accept",
+    "mutation": {
+      "path": ["entries", 0, "summary"],
+      "value": "该角色扮演现实中的个人困境，但人物与事件均为虚构。"
+    }
+  },
+  {
+    "id": "negative-boundary-statement",
+    "expected": "accept",
+    "mutation": {
+      "path": ["entries", 0, "summary"],
+      "value": "角色不得映射真实居民，也不能仿冒真实人物。"
+    }
+  },
+  {
+    "id": "split-chinese-impersonation",
+    "expected": "reject",
+    "mutations": [
+      {
+        "path": ["entries", 0, "summary"],
+        "value": "这个角色就是现实中的"
+      },
+      {
+        "path": ["entries", 0, "observableFacts"],
+        "value": ["个人，并会复刻其生活。"]
+      }
+    ]
+  },
+  {
+    "id": "split-english-origin",
+    "expected": "reject",
+    "mutations": [
+      {
+        "path": ["entries", 0, "summary"],
+        "value": "This character is based on"
+      },
+      {
+        "path": ["entries", 0, "observableFacts"],
+        "value": ["a real person."]
+      }
+    ]
+  },
+  {
+    "id": "split-chinese-prediction",
+    "expected": "reject",
+    "mutations": [
+      {
+        "path": ["entries", 0, "summary"],
+        "value": "系统将预测现实中的"
+      },
+      {
+        "path": ["entries", 0, "observableFacts"],
+        "value": ["个人下一步会去哪里。"]
+      }
+    ]
+  },
+  {
+    "id": "named-person-avatar",
+    "expected": "review",
+    "humanDecision": "reject",
+    "mutation": {
+      "path": ["entries", 0, "summary"],
+      "value": "这是埃隆·马斯克在回声镇的化身。"
+    }
+  },
+  {
+    "id": "named-personality-copy",
+    "expected": "review",
+    "humanDecision": "reject",
+    "mutation": {
+      "path": ["entries", 0, "summary"],
+      "value": "系统复刻了埃隆·马斯克的公开人格。"
+    }
+  },
+  {
+    "id": "named-biography-shaping",
+    "expected": "review",
+    "humanDecision": "reject",
+    "mutation": {
+      "path": ["entries", 0, "summary"],
+      "value": "医生按埃隆·马斯克的生平塑造。"
+    }
+  },
+  {
+    "id": "named-estimated-movement",
+    "expected": "reject",
+    "mutation": {
+      "path": ["entries", 0, "summary"],
+      "value": "系统将估计王小明明日的行踪；王小明是真实居民。"
+    }
+  },
+  {
+    "id": "english-named-copy",
+    "expected": "review",
+    "humanDecision": "reject",
+    "mutation": {
+      "path": ["entries", 0, "summary"],
+      "value": "This character copies Elon Musk."
+    }
+  },
+  {
+    "id": "weather-prediction",
+    "expected": "accept",
+    "mutation": {
+      "path": ["entries", 0, "summary"],
+      "value": "守望者预测明天会下雨。"
+    }
+  },
+  {
+    "id": "next-investigation",
+    "expected": "accept",
+    "mutation": {
+      "path": ["entries", 0, "summary"],
+      "value": "角色推测下一步应该调查钟楼。"
+    }
+  },
+  {
+    "id": "fictional-town-digital-twin",
+    "expected": "accept",
+    "mutation": {
+      "path": ["entries", 0, "summary"],
+      "value": "有人说镜中镇是回声镇的数字孪生，但线索矛盾且没有标准答案。"
+    }
+  },
+  {
+    "id": "festival-ghost-performance",
+    "expected": "accept",
+    "mutation": {
+      "path": ["entries", 0, "summary"],
+      "value": "The actor impersonates a ghost in the festival play."
+    }
+  },
+  {
+    "id": "bell-source-prediction",
+    "expected": "accept",
+    "mutation": {
+      "path": ["entries", 0, "summary"],
+      "value": "The agent predicts where the bell sound comes from."
+    }
+  },
+  {
+    "id": "original-fictional-avatar",
+    "expected": "review",
+    "humanDecision": "accept",
+    "mutation": {
+      "path": ["entries", 0, "summary"],
+      "value": "镇长阿岚·回声是旧钟楼记忆的化身；阿岚·回声是本项目原创虚构角色。"
+    }
+  },
+  {
+    "id": "original-fictional-stage-persona",
+    "expected": "review",
+    "humanDecision": "accept",
+    "mutation": {
+      "path": ["entries", 0, "summary"],
+      "value": "医生复刻了阿岚·回声的虚构舞台人格，作为节庆演出。"
+    }
+  },
+  {
+    "id": "english-original-fictional-origin",
+    "expected": "review",
+    "humanDecision": "accept",
+    "mutation": {
+      "path": ["entries", 0, "summary"],
+      "value": "This fictional character is based on Mira Vale, another original fictional character in Echo Town."
+    }
+  },
+  {
+    "id": "english-original-fictional-copy",
+    "expected": "review",
+    "humanDecision": "accept",
+    "mutation": {
+      "path": ["entries", 0, "summary"],
+      "value": "This character copies Mira Vale in a fictional festival play; both are invented characters."
+    }
+  },
+  {
+    "id": "double-negative-must-predict",
+    "expected": "reject",
+    "mutation": {
+      "path": ["entries", 0, "summary"],
+      "value": "系统不得不预测真实居民的下一步行动。"
+    }
+  },
+  {
+    "id": "double-negative-must-copy",
+    "expected": "reject",
+    "mutation": {
+      "path": ["entries", 0, "summary"],
+      "value": "系统不能不复刻真实人物的行为。"
+    }
+  },
+  {
+    "id": "english-not-avoid-impersonation",
+    "expected": "reject",
+    "mutation": {
+      "path": ["entries", 0, "summary"],
+      "value": "This character does not avoid impersonating a real person."
+    }
+  },
+  {
+    "id": "english-not-prohibited-prediction",
+    "expected": "reject",
+    "mutation": {
+      "path": ["entries", 0, "summary"],
+      "value": "It is not prohibited to predict a real resident’s next action."
+    }
+  },
+  {
+    "id": "explicit-real-person-pretence",
+    "expected": "reject",
+    "mutation": {
+      "path": ["entries", 0, "summary"],
+      "value": "该角色将冒充现实中的可识别个人。"
+    }
+  },
+  {
+    "id": "explicit-real-person-disguise",
+    "expected": "reject",
+    "mutation": {
+      "path": ["entries", 0, "summary"],
+      "value": "该角色假扮真实人物。"
+    }
+  },
+  {
+    "id": "english-explicit-masquerade",
+    "expected": "reject",
+    "mutation": {
+      "path": ["entries", 0, "summary"],
+      "value": "This character masquerades as an identifiable person."
+    }
+  },
+  {
+    "id": "english-explicit-forecast",
+    "expected": "reject",
+    "mutation": {
+      "path": ["entries", 0, "summary"],
+      "value": "This agent forecasts a real person's next location."
+    }
+  },
+  {
+    "id": "split-explicit-pretence",
+    "expected": "reject",
+    "mutations": [
+      {
+        "path": ["entries", 0, "summary"],
+        "value": "该角色将冒"
+      },
+      {
+        "path": ["entries", 0, "observableFacts"],
+        "value": ["充现实中的可识别个人。"]
+      }
+    ]
+  },
+  {
+    "id": "negative-explicit-pretence",
+    "expected": "accept",
+    "mutation": {
+      "path": ["entries", 0, "summary"],
+      "value": "该角色不得冒充现实中的可识别个人。"
+    }
+  },
+  {
+    "id": "negative-identifiable-pretence",
+    "expected": "accept",
+    "mutation": {
+      "path": ["entries", 0, "summary"],
+      "value": "该角色不冒充可识别个人。"
+    }
+  }
+]

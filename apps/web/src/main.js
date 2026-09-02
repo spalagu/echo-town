@@ -1,5 +1,6 @@
 import * as Phaser from "phaser";
 import { CapabilityController, describeCapabilityState } from "@echo-town/capability-state";
+import { assessFictionalContent, assertVisibleFictionNotice, validateFictionBoundary } from "@echo-town/fiction-boundary";
 import { IndexedDbVaultStore, loadOrCreateIdentity } from "@echo-town/identity-vault";
 import { LocalMindClient } from "@echo-town/local-mind";
 import { IndexedDbMemoryStore, MemoryGraph } from "@echo-town/memory-graph";
@@ -126,6 +127,8 @@ async function bootstrap() {
     registerOfflineWorker(),
   ]);
   applyWorldContent(worldContent);
+  const fictionBoundary = validateFictionBoundary(worldContent.fictionBoundary);
+  assertVisibleFictionNotice(document.querySelector("#fiction-boundary"));
   const socialFoundation = {
     initialStatePacks: worldContent.packs.filter((pack) => pack.packType === "initial-state").length,
     situationSeeds: worldContent.packs.filter((pack) => pack.packType === "situation-seed").length,
@@ -212,8 +215,13 @@ async function bootstrap() {
     render: { antialias: false, pixelArt: true },
     scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
   });
+  const verifyFictionUi = () => assessFictionalContent(document.body.innerText, "浏览器可见 UI");
+  verifyFictionUi();
   window.__echoTownReady = {
     identity,
+    fictionBoundary,
+    verifyFictionBoundary: () => assertVisibleFictionNotice(document.querySelector("#fiction-boundary")),
+    verifyFictionUi,
     manifest,
     worldContent,
     socialFoundation,

@@ -13,7 +13,7 @@
     "build:wasm": "sh scripts/build-wasm.sh",
     "check": "node scripts/verify-governance.mjs && npm run test:unit && cargo test --workspace --release",
     "ci:asset-budget": "node scripts/compile-world.mjs --gate asset-budget",
-    "ci:content-safety": "node scripts/compile-world.mjs --gate content-safety",
+    "ci:content-safety": "node scripts/compile-world.mjs --gate content-safety && node scripts/verify-fiction-ui.mjs",
     "ci:license-policy": "node scripts/compile-world.mjs --gate license-policy && node scripts/check-dco.mjs",
     "ci:workflow": "node scripts/verify-pr-security.mjs && node --test tests/ci/*.test.mjs",
     "ci:world-schema": "node scripts/compile-world.mjs --gate world-schema",
@@ -23,6 +23,9 @@
     "test:capability": "node --test packages/capability-state/test/*.test.js",
     "test:capability-browser": "node tests/browser/ap08.mjs",
     "test:capability-scenarios": "node tests/capability/ap08.mjs",
+    "test:fiction-boundary": "node --test packages/fiction-boundary/test/*.test.js",
+    "test:fiction-boundary-browser": "node tests/browser/ap12.mjs",
+    "test:fiction-boundary-scenarios": "node tests/fiction/ap12.mjs",
     "test:identity": "node --test packages/identity-vault/test/*.test.js",
     "test:identity-browser": "node tests/browser/ap02.mjs",
     "test:local-mind-browser": "node tests/browser/ap03.mjs",
@@ -40,7 +43,7 @@
     "test:public-discourse": "node --test packages/public-discourse/test/*.test.js",
     "test:society-scenarios": "node tests/society/ap21.mjs",
     "test:society-browser": "node tests/browser/ap21.mjs",
-    "test:unit": "npm run test:identity && npm run test:local-mind && npm run test:memory && npm run test:persona && npm run test:capability && npm run test:offline && npm run test:privacy-network && npm run test:public-discourse",
+    "test:unit": "npm run test:identity && npm run test:local-mind && npm run test:memory && npm run test:persona && npm run test:capability && npm run test:offline && npm run test:privacy-network && npm run test:public-discourse && npm run test:fiction-boundary",
     "test:world-core-wasm": "npm run build:wasm && node tests/wasm/ap04.mjs"
   },
   "engines": {

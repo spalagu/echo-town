@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { lstat, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { assessFictionalContent, fictionBoundaryDeclaration } from "../packages/fiction-boundary/src/index.js";
 import { validateInitialStatePack, validateSituationSeed } from "../packages/public-discourse/src/contracts.js";
 
 const ROOT_KEYS = new Set(["schemaVersion", "packId", "title", "license", "attribution", "entries"]);
@@ -139,6 +140,7 @@ export async function inspectWorld(root) {
         if (assetLicenses.has(license.assetPath)) throw new Error(`资产许可旁车重复：${license.assetPath}`);
         assetLicenses.set(license.assetPath, { source: file.relative, license });
       } else {
+        const fictionReview = assessFictionalContent(parsed, file.relative);
         const packType = parsed?.packType ?? "content-pack";
         const content = packType === "initial-state"
           ? validateInitialStatePack(parsed, file.relative)
@@ -151,6 +153,7 @@ export async function inspectWorld(root) {
           source: file.relative,
           sha256: createHash("sha256").update(bytes).digest("hex"),
           bytes: bytes.length,
+          fictionReview,
           content,
         });
       }
@@ -173,7 +176,13 @@ export async function inspectWorld(root) {
 export async function compileWorld({ root, output }) {
   const inspected = await inspectWorld(root);
   const contentHash = createHash("sha256").update(inspected.packs.map((pack) => `${pack.source}:${pack.sha256}`).join("\n")).digest("hex");
-  const manifest = { schemaVersion: 1, contentHash, packs: inspected.packs, assetLicenses: inspected.assetLicenses };
+  const manifest = {
+    schemaVersion: 1,
+    contentHash,
+    fictionBoundary: fictionBoundaryDeclaration(),
+    packs: inspected.packs,
+    assetLicenses: inspected.assetLicenses,
+  };
   await mkdir(path.dirname(output), { recursive: true });
   await writeFile(output, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
   return { manifest, totalBytes: inspected.totalBytes, fileCount: inspected.files.length };
@@ -190,11 +199,12 @@ async function main() {
   const gate = valueAfter("--gate", "all");
   if (!["all", "world-schema", "asset-budget", "license-policy", "content-safety"].includes(gate)) throw new Error(`未知 gate：${gate}`);
   const inspected = await inspectWorld(root);
+  const humanReviewPacks = inspected.packs.filter((pack) => pack.fictionReview.humanReviewRequired).length;
   if (gate === "all") {
     const result = await compileWorld({ root, output });
-    console.log(`世界内容编译通过：${result.manifest.packs.length} 个包，${result.fileCount} 个文件，contentHash=${result.manifest.contentHash}`);
+    console.log(`世界内容编译通过：${result.manifest.packs.length} 个包，${result.fileCount} 个文件，${humanReviewPacks} 个人工复核包，contentHash=${result.manifest.contentHash}`);
   } else {
-    console.log(`${gate} 通过：${inspected.packs.length} 个包，${inspected.files.length} 个文件，${inspected.totalBytes} 字节`);
+    console.log(`${gate} 通过：${inspected.packs.length} 个包，${inspected.files.length} 个文件，${inspected.totalBytes} 字节，${humanReviewPacks} 个人工复核包`);
   }
 }
 

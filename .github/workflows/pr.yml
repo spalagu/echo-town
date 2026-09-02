@@ -102,6 +102,7 @@ jobs:
         with:
           node-version: 24.20.0
       - run: npm run ci:content-safety
+      - run: npm run test:fiction-boundary-scenarios
 
   build:
     runs-on: ubuntu-24.04
@@ -123,3 +124,4 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run build
       - run: npm run test:society-browser
+      - run: npm run test:fiction-boundary-browser
