@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@echo-town/identity-vault": "*",
+    "@echo-town/local-mind": "*",
     "phaser": "4.0.0"
   },
   "devDependencies": {

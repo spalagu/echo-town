@@ -17,14 +17,27 @@
     "test:browser": "node tests/browser/ap01.mjs",
     "test:identity": "node --test packages/identity-vault/test/*.test.js",
     "test:identity-browser": "node tests/browser/ap02.mjs",
-    "test:unit": "npm run test:identity",
+    "test:local-mind-browser": "node tests/browser/ap03.mjs",
+    "test:local-mind": "node --test packages/local-mind/test/*.test.js",
+    "test:unit": "npm run test:identity && npm run test:local-mind",
     "test:world-core-wasm": "npm run build:wasm && node tests/wasm/ap04.mjs"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=20.19"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "4.2.0"
   },
   "devDependencies": {
     "playwright": "1.62.1"
+  },
+  "overrides": {
+    "@huggingface/transformers": {
+      "sharp": "0.35.0",
+      "onnxruntime-node": {
+        "adm-zip": "0.6.0"
+      }
+    }
   },
   "license": "Apache-2.0"
 }

@@ -1,5 +1,6 @@
 import * as Phaser from "phaser";
 import { IndexedDbVaultStore, loadOrCreateIdentity } from "@echo-town/identity-vault";
+import { LocalMindClient } from "@echo-town/local-mind";
 import initWorldCore, { WasmWorldCore } from "../../../crates/world-core/pkg/echo_town_world_core.js";
 import worldCoreUrl from "../../../crates/world-core/pkg/echo_town_world_core_bg.wasm?url";
 import "./styles.css";
@@ -109,7 +110,21 @@ async function bootstrap() {
     authorityId: identity.actorId,
     actors: [{ actorId: identity.actorId, publicKeyHex, x: 0, y: 0 }],
   }));
-  document.querySelector("#runtime-status").textContent = `本地身份与 Wasm 核心就绪 · ${manifest.version} · ${manifest.assets.length} 项静态资源`;
+  const localMind = new LocalMindClient();
+  const localMindStatus = await localMind.status();
+  const firstDecision = await localMind.decide({
+    actorId: identity.actorId,
+    logicalTime: 0,
+    position: { x: 0, y: 0 },
+    nearbyPlaces: [
+      { id: "old-clocktower", dx: -1, dy: -1, tags: ["curiosity"] },
+      { id: "river-market", dx: 1, dy: 1, tags: ["social"] },
+    ],
+    needs: [{ kind: "social", level: 62 }],
+    visibleEvents: [],
+  });
+  document.querySelector("#mind-status").textContent = `角色心智：${localMindStatus.mode} · ${localMindStatus.execution}`;
+  document.querySelector("#runtime-status").textContent = `本地身份、AI Worker 与 Wasm 核心就绪 · ${manifest.version} · ${manifest.assets.length} 项静态资源`;
 
   const game = new Phaser.Game({
     type: Phaser.AUTO,
@@ -121,7 +136,7 @@ async function bootstrap() {
     render: { antialias: false, pixelArt: true },
     scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
   });
-  window.__echoTownReady = { identity, manifest, game, worldCore, stateHash: worldCore.state_hash() };
+  window.__echoTownReady = { identity, manifest, game, worldCore, localMind, firstDecision, stateHash: worldCore.state_hash() };
 }
 
 bootstrap().catch((error) => {
