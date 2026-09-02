@@ -12,6 +12,7 @@
     "@echo-town/identity-vault": "*",
     "@echo-town/local-mind": "*",
     "@echo-town/memory-graph": "*",
+    "@echo-town/persona-core": "*",
     "phaser": "4.0.0"
   },
   "devDependencies": {

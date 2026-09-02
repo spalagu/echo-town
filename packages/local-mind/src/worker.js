@@ -1,6 +1,7 @@
 import { MindCapability } from "./capability.js";
 import { gateIntentProposals, sanitizeObservation } from "./contracts.js";
 import { decideByRules } from "./rules.js";
+import { rankIntentCandidates } from "@echo-town/persona-core";
 
 const capability = new MindCapability();
 let languageModule;
@@ -35,7 +36,12 @@ self.onmessage = async ({ data }) => {
     if (type !== "decide") throw new Error("未知 Local Mind 请求");
 
     const observation = sanitizeObservation(data.observation);
-    const intents = decideByRules(observation);
+    const personaDecision = data.personaProfile && data.dilemma
+      ? rankIntentCandidates(data.personaProfile, data.dilemma)
+      : null;
+    const intents = personaDecision
+      ? personaDecision.candidates.map((candidate) => candidate.intent)
+      : decideByRules(observation);
     let languageCandidate = null;
     let model = "rules";
     const shouldTryCpu = capability.mode === "cpu-wasm" || capability.canProbe();
@@ -53,6 +59,7 @@ self.onmessage = async ({ data }) => {
     post(id, "result", {
       result: {
         intents: gated.intents,
+        personaDecision,
         languageCandidate,
         model,
         capability: capability.snapshot(),

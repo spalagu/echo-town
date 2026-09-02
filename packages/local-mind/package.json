@@ -7,6 +7,9 @@
     ".": "./src/index.js",
     "./contracts": "./src/contracts.js"
   },
+  "dependencies": {
+    "@echo-town/persona-core": "*"
+  },
   "peerDependencies": {
     "@huggingface/transformers": "4.2.0"
   }

@@ -34,7 +34,7 @@ export class LocalMindClient {
     });
   }
 
-  decide(observation) { return this.request("decide", { observation }); }
+  decide(observation, { personaProfile, dilemma } = {}) { return this.request("decide", { observation, personaProfile, dilemma }); }
   configureCpu() { return this.request("configure-cpu"); }
   status() { return this.request("status"); }
   gate(intents) { return this.request("gate", { intents }); }

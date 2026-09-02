@@ -2,6 +2,7 @@ import * as Phaser from "phaser";
 import { IndexedDbVaultStore, loadOrCreateIdentity } from "@echo-town/identity-vault";
 import { LocalMindClient } from "@echo-town/local-mind";
 import { IndexedDbMemoryStore, MemoryGraph } from "@echo-town/memory-graph";
+import { DILEMMA_FIXTURES, PERSONA_FIXTURES } from "@echo-town/persona-core";
 import initWorldCore, { WasmWorldCore } from "../../../crates/world-core/pkg/echo_town_world_core.js";
 import worldCoreUrl from "../../../crates/world-core/pkg/echo_town_world_core_bg.wasm?url";
 import "./styles.css";
@@ -114,6 +115,8 @@ async function bootstrap() {
     actors: [{ actorId: identity.actorId, publicKeyHex, x: 0, y: 0 }],
   }));
   const localMind = new LocalMindClient();
+  const personaIndex = Array.from(identity.actorId).reduce((sum, character) => sum + character.codePointAt(0), 0) % PERSONA_FIXTURES.length;
+  const personaProfile = PERSONA_FIXTURES[personaIndex];
   const memoryGraph = new MemoryGraph(memorySnapshot || undefined);
   if (!memorySnapshot) {
     memoryGraph.remember({
@@ -145,8 +148,8 @@ async function bootstrap() {
     ],
     needs: [{ kind: "social", level: 62 }],
     visibleEvents: [],
-  });
-  document.querySelector("#mind-status").textContent = `角色心智：${localMindStatus.mode} · ${localMindStatus.execution} · ${memoryGraph.allMemories().length} 条有来源记忆`;
+  }, { personaProfile, dilemma: DILEMMA_FIXTURES[0] });
+  document.querySelector("#mind-status").textContent = `角色心智：${localMindStatus.mode} · ${localMindStatus.execution} · 人格已就绪 · ${memoryGraph.allMemories().length} 条有来源记忆`;
   document.querySelector("#runtime-status").textContent = `本地身份、AI Worker 与 Wasm 核心就绪 · ${manifest.version} · ${manifest.assets.length} 项静态资源`;
 
   const game = new Phaser.Game({
@@ -159,7 +162,20 @@ async function bootstrap() {
     render: { antialias: false, pixelArt: true },
     scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
   });
-  window.__echoTownReady = { identity, manifest, game, worldCore, localMind, firstDecision, memoryGraph, memoryStore, stateHash: worldCore.state_hash() };
+  window.__echoTownReady = {
+    identity,
+    manifest,
+    game,
+    worldCore,
+    localMind,
+    firstDecision,
+    personaProfile,
+    personaFixtures: PERSONA_FIXTURES,
+    dilemmaFixtures: DILEMMA_FIXTURES,
+    memoryGraph,
+    memoryStore,
+    stateHash: worldCore.state_hash(),
+  };
 }
 
 bootstrap().catch((error) => {

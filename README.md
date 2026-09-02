@@ -20,6 +20,7 @@ Echo Town 是一个浏览器本地运行的 2D AI 虚拟小镇。角色拥有稳
 - Rust 编写并编译到 WebAssembly 的确定性 World Core，负责签名、序列、预算、观察哈希和移动范围校验。
 - Dedicated Worker 内的规则优先 Local Mind；CPU/Wasm 小模型只生成低频语言候选，失败后降级规则模式。
 - 有来源的工作/长期记忆、追加纠正、不可普通遗忘事实，以及与公共相识分离的私人非对称关系视图。
+- 12 个冻结人格与可解释 Persona Core；人格、价值、需要和心境会改变 Intent 排序，核心特质只会有边界地缓慢成长。
 - 内容寻址的静态构建清单；相同源码重复构建得到相同文件哈希。
 
 项目仍未启用 GitHub Actions、Ruleset 或 GitHub Pages，也没有公开可玩的线上版本。
@@ -49,6 +50,7 @@ npm run test:identity-browser
 npm run test:local-mind-browser
 npm run test:memory-scenarios
 npm run test:memory-browser
+npm run test:persona-scenarios
 ```
 
 `npm run build` 会先生成 Rust/WebAssembly 核心，再构建完全静态的浏览器制品和版本清单。浏览器测试通过本地静态预览访问交付制品，不依赖应用服务器或云模型。
