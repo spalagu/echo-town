@@ -21,6 +21,14 @@ export function validateWorkflow(text) {
   const checkoutCount = [...text.matchAll(/uses:\s*actions\/checkout@/gu)].length;
   const noCredentialCount = [...text.matchAll(/persist-credentials:\s*false/gu)].length;
   if (checkoutCount === 0 || checkoutCount !== noCredentialCount) problems.push("每次 checkout 都必须关闭凭证持久化");
+  const headCheckoutCount = [...text.matchAll(/ref:\s*\$\{\{\s*github\.event\.pull_request\.head\.sha\s*\}\}/gu)].length;
+  if (headCheckoutCount !== checkoutCount) problems.push("每次 checkout 都必须固定到贡献者 Pull Request head SHA");
+  if (!/^\s{2}SOURCE_COMMIT:\s*\$\{\{\s*github\.event\.pull_request\.head\.sha\s*\}\}\s*$/mu.test(text)
+    || !/pages-release\.mjs write apps\/web\/dist --commit "\$SOURCE_COMMIT"/u.test(text)
+    || !/pages-release\.mjs verify apps\/web\/dist --commit "\$SOURCE_COMMIT"/u.test(text)
+    || /pages-release\.mjs (?:write|verify) apps\/web\/dist --commit "\$GITHUB_SHA"/u.test(text)) {
+    problems.push("PR artifact 必须绑定贡献者 head SHA，不能绑定 GitHub 合成 merge SHA");
+  }
   for (const job of REQUIRED_CHECKS) if (!new RegExp(`^  ${job}:\\s*$`, "mu").test(text)) problems.push(`缺少必需检查 job：${job}`);
   const timeouts = [...text.matchAll(/timeout-minutes:\s*(\d+)/gu)].map((match) => Number(match[1]));
   if (timeouts.length < REQUIRED_CHECKS.length || timeouts.some((value) => value < 1 || value > 30)) problems.push("每个 job 必须设置不超过 30 分钟的超时");

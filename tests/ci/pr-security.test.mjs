@@ -15,6 +15,13 @@ test("正式 PR workflow、CODEOWNERS 与 Ruleset 安全契约通过", async () 
   assert.deepEqual(await verifyRepository(root), []);
 });
 
+test("PR checkout 与 release manifest 都绑定贡献者 head SHA，不接受合成 merge SHA", () => {
+  assert.deepEqual(validateWorkflow(workflow), []);
+  const syntheticMergeMutation = workflow
+    .replace("--commit \"$SOURCE_COMMIT\"", "--commit \"$GITHUB_SHA\"");
+  assert.ok(validateWorkflow(syntheticMergeMutation).some((problem) => problem.includes("贡献者 head SHA")));
+});
+
 test("世界内容编译完全确定且产出可发布 manifest", async () => {
   const temporary = await mkdtemp(path.join(os.tmpdir(), "echo-town-world-"));
   try {
