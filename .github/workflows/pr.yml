@@ -125,6 +125,9 @@ jobs:
       - run: npm ci --ignore-scripts --registry=https://registry.npmjs.org
       - run: npx playwright install --with-deps chromium
       - run: npm run build
+      - run: node scripts/pages-release.mjs write apps/web/dist --commit "$GITHUB_SHA"
+      - run: node scripts/pages-release.mjs verify apps/web/dist --commit "$GITHUB_SHA"
+      - run: npm run test:pages-browser
       - run: npm run test:mystery-world-core-wasm
       - run: npm run test:latent-zone-world-core-wasm
       - run: npm run test:companion-browser

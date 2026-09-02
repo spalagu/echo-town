@@ -1,4 +1,5 @@
 import { access, readFile } from "node:fs/promises";
+import { verifyPagesRepository } from "./verify-pages-security.mjs";
 import { verifyRepository } from "./verify-pr-security.mjs";
 
 const requiredFiles = [
@@ -10,6 +11,7 @@ const requiredFiles = [
   "CODE_OF_CONDUCT.md",
   "SECURITY.md",
   ".github/CODEOWNERS",
+  ".github/workflows/pages.yml",
 ];
 
 const failures = [];
@@ -19,15 +21,6 @@ for (const file of requiredFiles) {
     await access(file);
   } catch {
     failures.push(`缺少文件：${file}`);
-  }
-}
-
-for (const file of [".github/workflows/pages.yml"]) {
-  try {
-    await access(file);
-    failures.push(`PR 阶段不得存在发布 workflow：${file}`);
-  } catch {
-    // PR 阶段不发布 GitHub Pages。
   }
 }
 
@@ -48,8 +41,9 @@ if (!failures.length) {
 
   try {
     failures.push(...await verifyRepository("."));
+    failures.push(...await verifyPagesRepository("."));
   } catch (error) {
-    failures.push(`PR 安全候选缺失或无法读取：${error.message}`);
+    failures.push(`治理安全候选缺失或无法读取：${error.message}`);
   }
 }
 
@@ -59,4 +53,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log(`治理骨架检查通过：${requiredFiles.length}/${requiredFiles.length} 个必需文件存在；本地 PR 安全候选通过；未配置 Pages 发布 workflow。`);
+console.log(`治理骨架检查通过：${requiredFiles.length}/${requiredFiles.length} 个必需文件存在；PR 与 Pages 安全候选均通过；未执行外部部署。`);
