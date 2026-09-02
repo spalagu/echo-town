@@ -1,10 +1,12 @@
 import * as Phaser from "phaser";
 import { CapabilityController, describeCapabilityState } from "@echo-town/capability-state";
 import { CompanionSession, IndexedDbCompanionStore } from "@echo-town/companion-core";
+import { buildEngagementState } from "@echo-town/engagement-director";
 import { assessFictionalContent, assertVisibleFictionNotice, validateFictionBoundary } from "@echo-town/fiction-boundary";
 import { IndexedDbVaultStore, loadOrCreateIdentity } from "@echo-town/identity-vault";
 import { LocalMindClient } from "@echo-town/local-mind";
 import { IndexedDbMemoryStore, MemoryGraph } from "@echo-town/memory-graph";
+import { simulateMystery } from "@echo-town/mystery-fabric";
 import { IndexedDbOfflineStore, OfflineActivityQueue, registerOfflineWorker } from "@echo-town/offline-runtime";
 import { DILEMMA_FIXTURES, PERSONA_FIXTURES } from "@echo-town/persona-core";
 import { PrivacyNetworkGate, PUBLIC_WIRE_FIELD_PATHS } from "@echo-town/privacy-network";
@@ -97,6 +99,34 @@ function renderReturnSummary(companion) {
   );
 }
 
+function renderEngagementHooks(state) {
+  const labels = {
+    relationship: "关系", mystery: "未解现象", controversy: "分歧", scarcity: "变化窗口",
+    social_change: "小镇变化", contribution: "你的影响",
+  };
+  const list = document.querySelector("#engagement-hook-list");
+  list.replaceChildren(...state.hooks.map((hookState) => {
+    const item = element("li", `engagement-hook hook-${hookState.kind}`);
+    const meta = element("div", "hook-meta");
+    meta.append(
+      element("span", "hook-kind", labels[hookState.kind]),
+      element("span", "hook-score", `信号 ${hookState.score}`),
+    );
+    const sourceCount = hookState.sourceEventIds.length + hookState.sourceClaimIds.length
+      + hookState.sourcePlanIds.length + hookState.sourceInfluenceIds.length;
+    item.append(
+      meta,
+      element("h3", "", hookState.title),
+      element("p", "", hookState.summary),
+      element("small", "hook-source", `${sourceCount} 个可核对来源${hookState.expiresAtTick === null ? "" : ` · 有效至逻辑时刻 ${hookState.expiresAtTick}`}`),
+    );
+    return item;
+  }));
+  document.querySelector("#engagement-status").textContent = state.coverageGaps.includes("influence")
+    ? "当前没有已回应的陪伴影响；其余牵挂均来自已经发生的世界记录。"
+    : "你的影响已被角色回应，并作为一种真实但非强制的牵挂保留。";
+}
+
 function renderHeartRoom(companion) {
   const container = document.querySelector("#heart-log");
   const entries = companion.heartRoom();
@@ -115,7 +145,7 @@ function influenceStatusLabel(status) {
   return ({ pending: "等待角色回应", accepted_as_influence: "角色愿意把它当作参考", refused: "角色选择不接受" })[status];
 }
 
-function renderInfluences(companion, companionStore) {
+function renderInfluences(companion, companionStore, refreshEngagement) {
   const list = document.querySelector("#influence-list");
   list.replaceChildren(...companion.influenceLog().map((influence) => {
     const item = element("li", "influence-item");
@@ -132,7 +162,8 @@ function renderInfluences(companion, companionStore) {
           const considered = companion.considerInfluence(influence.id);
           await companionStore.set(companion.snapshot());
           document.querySelector("#influence-feedback").textContent = influenceStatusLabel(considered.status);
-          renderInfluences(companion, companionStore);
+          renderInfluences(companion, companionStore, refreshEngagement);
+          refreshEngagement();
         } catch (error) {
           button.disabled = false;
           document.querySelector("#influence-feedback").textContent = `回应失败：${error.message}`;
@@ -186,11 +217,11 @@ function setupCompanionTabs() {
   });
 }
 
-function setupCompanionUi(companion, companionStore) {
+function setupCompanionUi(companion, companionStore, refreshEngagement) {
   renderReturnSummary(companion);
   renderBehaviors(companion);
   renderHeartRoom(companion);
-  renderInfluences(companion, companionStore);
+  renderInfluences(companion, companionStore, refreshEngagement);
   renderMemoryAlbum(companion);
   setupCompanionTabs();
 
@@ -224,7 +255,7 @@ function setupCompanionUi(companion, companionStore) {
       await companionStore.set(companion.snapshot());
       form.elements.text.value = "";
       document.querySelector("#influence-feedback").textContent = "已留在本机，等待角色回应。";
-      renderInfluences(companion, companionStore);
+      renderInfluences(companion, companionStore, refreshEngagement);
     } catch (error) {
       document.querySelector("#influence-feedback").textContent = `未能留下：${error.message}`;
       form.elements.text.focus();
@@ -331,7 +362,8 @@ async function bootstrap() {
   };
   const initialStatePacks = worldContent.packs.filter((pack) => pack.packType === "initial-state").map((pack) => pack.content);
   const situationSeeds = worldContent.packs.filter((pack) => pack.packType === "situation-seed").map((pack) => pack.content);
-  if (initialStatePacks.length === 0 || situationSeeds.length === 0) throw new Error("社会运行时缺少初态或情境");
+  const mysterySeeds = worldContent.packs.filter((pack) => pack.packType === "mystery-seed").map((pack) => pack.content);
+  if (initialStatePacks.length === 0 || situationSeeds.length === 0 || mysterySeeds.length === 0) throw new Error("社会运行时缺少初态、情境或悬疑来源");
   const societySeed = Array.from(identity.actorId).reduce((sum, character) => (sum * 33 + character.codePointAt(0)) % 1_000_001, 0);
   const societySimulation = simulateSociety(initialStatePacks[0], situationSeeds, societySeed);
   const societyValidation = validateSimulationResult(societySimulation, initialStatePacks[0], situationSeeds);
@@ -376,6 +408,32 @@ async function bootstrap() {
       await companionStore.clear();
     }
   }
+  const mysteryRuns = mysterySeeds.map((mystery, index) => simulateMystery(mystery, personaProfile, societySeed + index));
+  const engagementInput = () => ({
+    actorId: companionInputs.sourceActorId,
+    generatedAtTick: 30,
+    events: societySimulation.events,
+    claims: societySimulation.claims,
+    relationships: societySimulation.acquaintances,
+    resources: societySimulation.resources,
+    plans: situationSeeds,
+    mysteryRuns,
+    influences: companion.influenceLog().filter((item) => item.status !== "pending").map((item) => ({
+      id: item.id,
+      status: item.status,
+      sourceEventIds: [...new Set([
+        ...item.sourceRelationshipEventIds,
+        ...item.sourceBehaviorIds.flatMap((id) => companion.explainBehavior(id).behavior.sourceEventIds),
+      ])],
+    })),
+  });
+  let engagementState = buildEngagementState(engagementInput());
+  const refreshEngagement = () => {
+    engagementState = buildEngagementState(engagementInput());
+    renderEngagementHooks(engagementState);
+    if (window.__echoTownReady) window.__echoTownReady.engagementState = engagementState;
+    return engagementState;
+  };
   const memoryGraph = new MemoryGraph(memorySnapshot || undefined);
   const offlineQueue = new OfflineActivityQueue(offlineSnapshot || undefined);
   const privacyNetwork = new PrivacyNetworkGate({ endpoint: "./__echo-town-sync" });
@@ -428,7 +486,8 @@ async function bootstrap() {
     render: { antialias: false, pixelArt: true },
     scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
   });
-  setupCompanionUi(companion, companionStore);
+  renderEngagementHooks(engagementState);
+  setupCompanionUi(companion, companionStore, refreshEngagement);
   const verifyFictionUi = () => assessFictionalContent(document.body.innerText, "浏览器可见 UI");
   verifyFictionUi();
   window.__echoTownReady = {
@@ -454,6 +513,9 @@ async function bootstrap() {
     personaProfile,
     companion,
     companionStore,
+    engagementState,
+    refreshEngagement,
+    mysteryRuns,
     personaFixtures: PERSONA_FIXTURES,
     dilemmaFixtures: DILEMMA_FIXTURES,
     memoryGraph,

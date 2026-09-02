@@ -11,10 +11,12 @@
   "dependencies": {
     "@echo-town/capability-state": "*",
     "@echo-town/companion-core": "*",
+    "@echo-town/engagement-director": "*",
     "@echo-town/fiction-boundary": "*",
     "@echo-town/identity-vault": "*",
     "@echo-town/local-mind": "*",
     "@echo-town/memory-graph": "*",
+    "@echo-town/mystery-fabric": "*",
     "@echo-town/offline-runtime": "*",
     "@echo-town/persona-core": "*",
     "@echo-town/privacy-network": "*",

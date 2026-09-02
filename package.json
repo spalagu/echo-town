@@ -25,6 +25,8 @@
     "test:capability-scenarios": "node tests/capability/ap08.mjs",
     "test:companion": "node --test packages/companion-core/test/*.test.js",
     "test:companion-browser": "node tests/browser/ap16.mjs",
+    "test:engagement": "node --test packages/engagement-director/test/*.test.js",
+    "test:engagement-browser": "node tests/browser/ap19-local.mjs",
     "test:fiction-boundary": "node --test packages/fiction-boundary/test/*.test.js",
     "test:fiction-boundary-browser": "node tests/browser/ap12.mjs",
     "test:fiction-boundary-scenarios": "node tests/fiction/ap12.mjs",
@@ -51,7 +53,7 @@
     "test:public-discourse": "node --test packages/public-discourse/test/*.test.js",
     "test:society-scenarios": "node tests/society/ap21.mjs",
     "test:society-browser": "node tests/browser/ap21.mjs",
-    "test:unit": "npm run test:identity && npm run test:local-mind && npm run test:memory && npm run test:persona && npm run test:capability && npm run test:offline && npm run test:privacy-network && npm run test:public-discourse && npm run test:companion && npm run test:fiction-boundary && npm run test:mystery && npm run test:latent-zone",
+    "test:unit": "npm run test:identity && npm run test:local-mind && npm run test:memory && npm run test:persona && npm run test:capability && npm run test:offline && npm run test:privacy-network && npm run test:public-discourse && npm run test:companion && npm run test:engagement && npm run test:fiction-boundary && npm run test:mystery && npm run test:latent-zone",
     "test:world-core-wasm": "npm run build:wasm && node tests/wasm/ap04.mjs"
   },
   "engines": {
