@@ -23,7 +23,9 @@ test("世界内容编译完全确定且产出可发布 manifest", async () => {
     const left = await compileWorld({ root: path.join(root, "world"), output: first });
     const right = await compileWorld({ root: path.join(root, "world"), output: second });
     assert.equal(left.manifest.contentHash, right.manifest.contentHash);
-    assert.equal(left.manifest.packs[0].content.entries[0].id, "old-clocktower");
+    const corePack = left.manifest.packs.find((pack) => pack.packType === "content-pack");
+    assert.equal(corePack.content.entries[0].id, "old-clocktower");
+    assert.equal(left.manifest.packs.filter((pack) => pack.packType === "mystery-seed").length, 3);
     assert.deepEqual(left.manifest.assetLicenses, []);
     assert.equal(await readFile(first, "utf8"), await readFile(second, "utf8"));
   } finally {

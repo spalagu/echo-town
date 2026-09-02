@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "packType": "mystery-seed",
+  "id": "borrowed-echoes",
+  "title": "借来的回声",
+  "license": "CC-BY-4.0",
+  "attribution": { "author": "spalagu", "source": "Echo Town 原创世界内容", "modified": false },
+  "clueFragments": [
+    { "schemaVersion": 1, "id": "echo-miscount", "sourceEventId": "event-echo-miscount", "observedPhenomenon": "旧钟楼偶尔会在最后一次摆动后留下一个更轻的回声，但记录者对次数意见不一。", "subjects": ["old-clocktower", "sound"], "visibilityRule": { "kind": "place", "anchorId": "old-clocktower", "minimumTrust": 0 }, "reliabilityHint": "contested" },
+    { "schemaVersion": 1, "id": "unsent-vibration", "sourceEventId": "event-unsent-vibration", "observedPhenomenon": "几封未寄出的信靠近铜制物件时，纸面出现了短暂而不一致的振动。", "subjects": ["echo-post-office", "copper-objects"], "visibilityRule": { "kind": "encounter", "anchorId": "echo-post-office", "minimumTrust": 0 }, "reliabilityHint": "unknown" },
+    { "schemaVersion": 1, "id": "market-hum", "sourceEventId": "event-market-hum", "observedPhenomenon": "河湾市场收摊后，有人听见空摊位之间传来与白天叫卖节奏相似的低鸣。", "subjects": ["river-market", "sound"], "visibilityRule": { "kind": "relationship", "anchorId": "market-keepers", "minimumTrust": 35 }, "reliabilityHint": "contested" },
+    { "schemaVersion": 1, "id": "token-warmth", "sourceEventId": "event-token-warmth", "observedPhenomenon": "一枚没有铭文的调音片在不同人手中呈现过轻微温差，变化没有稳定顺序。", "subjects": ["quiet-tuning-token", "witnesses"], "visibilityRule": { "kind": "public", "anchorId": "town-square", "minimumTrust": 0 }, "reliabilityHint": "corroborated" }
+  ],
+  "artifacts": [
+    {
+      "schemaVersion": 1,
+      "itemId": "quiet-tuning-token",
+      "observableActions": ["listen_beside", "pass_between", "rest_on_letters", "tap_softly"],
+      "conditionRules": [
+        { "id": "echo-circuit", "pathId": "shared-cadence", "acceptedActions": ["pass_between", "listen_beside"], "observedFragmentIds": ["echo-miscount", "token-warmth"], "worldSignals": ["weather:light-rain"], "minimumWitnesses": 2 },
+        { "id": "paper-circuit", "pathId": "unsent-cadence", "acceptedActions": ["rest_on_letters", "tap_softly"], "observedFragmentIds": ["unsent-vibration", "market-hum"], "worldSignals": ["place:closing-hour"], "minimumWitnesses": 1 }
+      ],
+      "boundedEffects": [
+        { "id": "echo-pulse", "pathId": "shared-cadence", "kind": "observation_pulse", "magnitude": 24, "durationTicks": 3 },
+        { "id": "paper-resonance", "pathId": "unsent-cadence", "kind": "artifact_resonance", "magnitude": 18, "durationTicks": 4 }
+      ],
+      "feedbackClass": "ambiguous"
+    }
+  ],
+  "actionAffordances": ["observe", "compare", "listen", "share_claim", "question", "conceal", "experiment", "withdraw"]
+}

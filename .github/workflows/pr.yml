@@ -30,6 +30,7 @@ jobs:
       - run: npm run ci:workflow
       - run: npm run test:unit
       - run: npm run test:society-scenarios
+      - run: npm run test:mystery-scenarios
 
   world-schema:
     runs-on: ubuntu-24.04
@@ -123,5 +124,6 @@ jobs:
       - run: npm ci --ignore-scripts --registry=https://registry.npmjs.org
       - run: npx playwright install --with-deps chromium
       - run: npm run build
+      - run: npm run test:mystery-world-core-wasm
       - run: npm run test:society-browser
       - run: npm run test:fiction-boundary-browser

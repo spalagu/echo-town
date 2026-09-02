@@ -3,6 +3,7 @@ import { lstat, mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { assessFictionalContent, fictionBoundaryDeclaration } from "../packages/fiction-boundary/src/index.js";
+import { validateMysterySeed } from "../packages/mystery-fabric/src/index.js";
 import { validateInitialStatePack, validateSituationSeed } from "../packages/public-discourse/src/contracts.js";
 
 const ROOT_KEYS = new Set(["schemaVersion", "packId", "title", "license", "attribution", "entries"]);
@@ -146,7 +147,9 @@ export async function inspectWorld(root) {
           ? validateInitialStatePack(parsed, file.relative)
           : packType === "situation-seed"
             ? validateSituationSeed(parsed, file.relative)
-            : validateContentPack(parsed, file.relative);
+            : packType === "mystery-seed"
+              ? validateMysterySeed(parsed, file.relative)
+              : validateContentPack(parsed, file.relative);
         rejectForbiddenContent(content, file.relative);
         packs.push({
           packType,
