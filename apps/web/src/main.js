@@ -5,6 +5,7 @@ import { LocalMindClient } from "@echo-town/local-mind";
 import { IndexedDbMemoryStore, MemoryGraph } from "@echo-town/memory-graph";
 import { IndexedDbOfflineStore, OfflineActivityQueue, registerOfflineWorker } from "@echo-town/offline-runtime";
 import { DILEMMA_FIXTURES, PERSONA_FIXTURES } from "@echo-town/persona-core";
+import { PrivacyNetworkGate, PUBLIC_WIRE_FIELD_PATHS } from "@echo-town/privacy-network";
 import initWorldCore, { WasmWorldCore } from "../../../crates/world-core/pkg/echo_town_world_core.js";
 import worldCoreUrl from "../../../crates/world-core/pkg/echo_town_world_core_bg.wasm?url";
 import "./styles.css";
@@ -132,6 +133,7 @@ async function bootstrap() {
   const personaProfile = PERSONA_FIXTURES[personaIndex];
   const memoryGraph = new MemoryGraph(memorySnapshot || undefined);
   const offlineQueue = new OfflineActivityQueue(offlineSnapshot || undefined);
+  const privacyNetwork = new PrivacyNetworkGate({ endpoint: "./__echo-town-sync" });
   if (!memorySnapshot) {
     memoryGraph.remember({
       id: `identity-${identity.actorId}`,
@@ -187,6 +189,8 @@ async function bootstrap() {
     offlineQueue,
     offlineStore,
     offlineWorker,
+    privacyNetwork,
+    privacyWireFields: PUBLIC_WIRE_FIELD_PATHS,
     firstDecision,
     personaProfile,
     personaFixtures: PERSONA_FIXTURES,

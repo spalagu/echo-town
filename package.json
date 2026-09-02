@@ -30,7 +30,9 @@
     "test:persona": "node --test packages/persona-core/test/*.test.js",
     "test:persona-browser": "node tests/browser/ap18.mjs",
     "test:persona-scenarios": "node tests/persona/ap18.mjs",
-    "test:unit": "npm run test:identity && npm run test:local-mind && npm run test:memory && npm run test:persona && npm run test:capability && npm run test:offline",
+    "test:privacy-network": "node --test packages/privacy-network/test/*.test.js",
+    "test:privacy-network-browser": "node tests/browser/ap10.mjs",
+    "test:unit": "npm run test:identity && npm run test:local-mind && npm run test:memory && npm run test:persona && npm run test:capability && npm run test:offline && npm run test:privacy-network",
     "test:world-core-wasm": "npm run build:wasm && node tests/wasm/ap04.mjs"
   },
   "engines": {
