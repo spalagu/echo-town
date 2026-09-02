@@ -13,17 +13,40 @@ Echo Town 是一个浏览器本地运行的 2D AI 虚拟小镇。角色拥有稳
 
 ## 当前阶段
 
-项目已经进入 M2。当前仓库只包含开源治理骨架，尚无可玩的发布版本，也没有启用 GitHub Actions、Ruleset 或 GitHub Pages。
+项目正在实施 M2。当前本地功能分支已经具备首个可运行纵切面：
+
+- Phaser 4 的静态 2D 小镇，可移动并与四处地点互动。
+- 浏览器本地随机居民、Ed25519 签名密钥、IndexedDB 持久化和口令加密导入导出。
+- Rust 编写并编译到 WebAssembly 的确定性 World Core，负责签名、序列、预算、观察哈希和移动范围校验。
+- 内容寻址的静态构建清单；相同源码重复构建得到相同文件哈希。
+
+项目仍未启用 GitHub Actions、Ruleset 或 GitHub Pages，也没有公开可玩的线上版本。
 
 ## 本地复验
 
-需要 Node.js 20 或更高版本，不需要安装依赖：
+需要 Node.js 20.19 或更高版本、Rust 1.85 或更高版本、`wasm32-unknown-unknown` target 和 `wasm-bindgen-cli`。首次运行先安装 JavaScript 依赖：
+
+```bash
+npm install
+```
+
+启动本地小镇：
+
+```bash
+npm run build
+npm run preview
+```
+
+复验身份和确定性核心：
 
 ```bash
 npm run check
+npm run test:world-core-wasm
+npm run test:browser
+npm run test:identity-browser
 ```
 
-命令会检查许可证、贡献指南、安全政策、行为准则、归属记录和 CODEOWNERS 是否完整。产品代码加入后，`npm run build` 将替换为真实的浏览器制品构建；当前 `build` 仅复验治理骨架。
+`npm run build` 会先生成 Rust/WebAssembly 核心，再构建完全静态的浏览器制品和版本清单。浏览器测试通过本地静态预览访问交付制品，不依赖应用服务器或云模型。
 
 ## 参与贡献
 

@@ -1,5 +1,7 @@
 node_modules/
 dist/
 target/
+crates/world-core/pkg/
+.echo-town-evidence/
 .DS_Store
 *.log

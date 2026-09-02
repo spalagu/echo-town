@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#12211d" />
+    <meta name="description" content="在浏览器本地运行的非剧本化 AI 虚拟小镇" />
+    <title>Echo Town · 回声镇</title>
+  </head>
+  <body>
+    <main id="shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">ECHO TOWN / 本地世界</p>
+          <h1>回声镇</h1>
+        </div>
+        <div class="identity" aria-live="polite">
+          <span id="identity-mark" class="identity-mark"></span>
+          <span><strong id="actor-name">正在生成居民……</strong><small id="actor-id"></small></span>
+        </div>
+      </header>
+      <section class="stage" aria-label="回声镇地图">
+        <div id="game"></div>
+        <aside class="notebook">
+          <p class="eyebrow">今日回声</p>
+          <h2 id="place-name">镇中心</h2>
+          <p id="place-message">方向键或 WASD 移动，点击地图也可以前往。</p>
+          <div class="divider"></div>
+          <p class="hint"><kbd>E</kbd> 或 <kbd>空格</kbd> 与附近地点互动</p>
+          <p id="runtime-status" class="runtime-status">正在读取版本清单……</p>
+        </aside>
+      </section>
+    </main>
+    <noscript>Echo Town 需要启用 JavaScript，但不需要安装原生应用。</noscript>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

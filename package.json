@@ -4,12 +4,27 @@
   "private": false,
   "description": "浏览器本地运行、由记忆与舆论驱动的非剧本化 AI 虚拟小镇",
   "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "check": "node scripts/verify-governance.mjs",
-    "build": "node scripts/verify-governance.mjs"
+    "build": "npm run build:wasm && npm run build --workspace @echo-town/web",
+    "build:wasm": "sh scripts/build-wasm.sh",
+    "check": "node scripts/verify-governance.mjs && npm run test:unit && cargo test --workspace --release",
+    "dev": "npm run dev --workspace @echo-town/web",
+    "preview": "npm run preview --workspace @echo-town/web",
+    "test:browser": "node tests/browser/ap01.mjs",
+    "test:identity": "node --test packages/identity-vault/test/*.test.js",
+    "test:identity-browser": "node tests/browser/ap02.mjs",
+    "test:unit": "npm run test:identity",
+    "test:world-core-wasm": "npm run build:wasm && node tests/wasm/ap04.mjs"
   },
   "engines": {
     "node": ">=20"
+  },
+  "devDependencies": {
+    "playwright": "1.62.1"
   },
   "license": "Apache-2.0"
 }
