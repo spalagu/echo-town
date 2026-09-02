@@ -1,4 +1,5 @@
 import { access, readFile } from "node:fs/promises";
+import { verifyRepository } from "./verify-pr-security.mjs";
 
 const requiredFiles = [
   "README.md",
@@ -21,17 +22,12 @@ for (const file of requiredFiles) {
   }
 }
 
-const forbiddenWorkflowPaths = [
-  ".github/workflows/pr.yml",
-  ".github/workflows/pages.yml",
-];
-
-for (const file of forbiddenWorkflowPaths) {
+for (const file of [".github/workflows/pages.yml"]) {
   try {
     await access(file);
-    failures.push(`当前授权边界内不应存在：${file}`);
+    failures.push(`PR 阶段不得存在发布 workflow：${file}`);
   } catch {
-    // 文件不存在符合当前授权边界。
+    // PR 阶段不发布 GitHub Pages。
   }
 }
 
@@ -49,6 +45,12 @@ if (!failures.length) {
   if (!contentLicense.includes("CC BY 4.0")) {
     failures.push("LICENSE-CONTENT.md 缺少 CC BY 4.0 声明");
   }
+
+  try {
+    failures.push(...await verifyRepository("."));
+  } catch (error) {
+    failures.push(`PR 安全候选缺失或无法读取：${error.message}`);
+  }
 }
 
 if (failures.length) {
@@ -57,4 +59,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log(`治理骨架检查通过：${requiredFiles.length}/${requiredFiles.length} 个必需文件存在；未配置 GitHub Actions 或 Pages。`);
+console.log(`治理骨架检查通过：${requiredFiles.length}/${requiredFiles.length} 个必需文件存在；本地 PR 安全候选通过；未配置 Pages 发布 workflow。`);

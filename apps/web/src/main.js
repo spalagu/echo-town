@@ -15,11 +15,23 @@ const WORLD_HEIGHT = 540;
 const TILE = 24;
 
 const places = [
-  { name: "旧钟楼", x: 156, y: 116, color: 0xb66f45, message: "钟停在一个无人记得的时刻。有人说，雨夜里它会多响一下。" },
-  { name: "玻璃温室", x: 744, y: 116, color: 0x5f9872, message: "潮湿的玻璃上总有新的手印，但没人承认来过。" },
-  { name: "回声邮局", x: 240, y: 390, color: 0xd0a454, message: "未寄出的信会在这里停留，直到写信的人改变心意。" },
-  { name: "河湾市场", x: 676, y: 396, color: 0x7992aa, message: "今天的摊主们在争论一枚用途不明的旧徽章。" },
+  { id: "old-clocktower", name: "旧钟楼", x: 156, y: 116, color: 0xb66f45, message: "钟停在一个无人记得的时刻。有人说，雨夜里它会多响一下。" },
+  { id: "glass-greenhouse", name: "玻璃温室", x: 744, y: 116, color: 0x5f9872, message: "潮湿的玻璃上总有新的手印，但没人承认来过。" },
+  { id: "echo-post-office", name: "回声邮局", x: 240, y: 390, color: 0xd0a454, message: "未寄出的信会在这里停留，直到写信的人改变心意。" },
+  { id: "river-market", name: "河湾市场", x: 676, y: 396, color: 0x7992aa, message: "今天的摊主们在争论一枚用途不明的旧徽章。" },
 ];
+
+function applyWorldContent(manifest) {
+  if (manifest?.schemaVersion !== 1 || !Array.isArray(manifest.packs)) throw new Error("世界内容清单非法");
+  const entries = manifest.packs.flatMap((pack) => pack?.content?.entries ?? []);
+  for (const place of places) {
+    const content = entries.find((entry) => entry.kind === "place" && entry.id === place.id);
+    if (content) {
+      place.name = content.title;
+      place.message = content.summary;
+    }
+  }
+}
 
 function updatePlace(name, message) {
   document.querySelector("#place-name").textContent = name;
@@ -98,16 +110,21 @@ class EchoTownScene extends Phaser.Scene {
 async function bootstrap() {
   const memoryStore = new IndexedDbMemoryStore();
   const offlineStore = new IndexedDbOfflineStore();
-  const [identity, manifest, memorySnapshot, offlineSnapshot, offlineWorker] = await Promise.all([
+  const [identity, manifest, worldContent, memorySnapshot, offlineSnapshot, offlineWorker] = await Promise.all([
     loadOrCreateIdentity(new IndexedDbVaultStore()),
     fetch("./version-manifest.json").then((response) => {
       if (!response.ok) throw new Error("版本清单不可用");
+      return response.json();
+    }),
+    fetch("./world-content-manifest.json").then((response) => {
+      if (!response.ok) throw new Error("世界内容清单不可用");
       return response.json();
     }),
     memoryStore.get(),
     offlineStore.get(),
     registerOfflineWorker(),
   ]);
+  applyWorldContent(worldContent);
   document.querySelector("#actor-name").textContent = identity.profile.name;
   document.querySelector("#actor-id").textContent = identity.actorId.slice(0, 18);
   document.querySelector("#identity-mark").style.background = identity.profile.appearance.primaryColor;
@@ -182,6 +199,7 @@ async function bootstrap() {
   window.__echoTownReady = {
     identity,
     manifest,
+    worldContent,
     game,
     worldCore,
     localMind,

@@ -1,0 +1,10 @@
+[
+  { "id": "secret-read", "target": "workflow", "expected": "拒绝 secret 引用" },
+  { "id": "write-token", "target": "workflow", "expected": "拒绝写 token" },
+  { "id": "privileged-checkout", "target": "workflow", "expected": "拒绝 pull_request_target" },
+  { "id": "unpinned-action", "target": "workflow", "expected": "拒绝浮动 Action tag" },
+  { "id": "ignored-failure", "target": "workflow", "expected": "拒绝吞掉失败" },
+  { "id": "missing-owner", "target": "codeowners", "expected": "拒绝缺世界内容所有者" },
+  { "id": "oversized-asset", "target": "world", "expected": "拒绝超预算资产" },
+  { "id": "malicious-script", "target": "world", "expected": "拒绝远程或可执行内容" }
+]

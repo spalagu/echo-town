@@ -51,8 +51,13 @@ try {
   });
   const moved = await page.evaluate(() => window.__echoTown.position());
   assert.ok(Math.hypot(moved.x - initial.x, moved.y - initial.y) > 100, "角色应当移动");
-  const interaction = await page.evaluate(() => window.__echoTown.interact());
+  const interaction = await page.evaluate(() => ({
+    ...window.__echoTown.interact(),
+    worldContent: window.__echoTownReady.worldContent,
+  }));
   assert.equal(interaction.place, "旧钟楼");
+  assert.equal(interaction.worldContent.schemaVersion, 1);
+  assert.equal(interaction.worldContent.packs[0].content.entries[0].id, "old-clocktower");
   const manifest = await page.evaluate(() => window.__echoTownReady.manifest);
   const stateHash = await page.evaluate(() => window.__echoTownReady.stateHash);
   assert.ok(manifest.version && manifest.assets.length >= 4);

@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://echo-town.example/schema/content-pack-v1.json",
+  "title": "Echo Town 声明式世界内容包 v1",
+  "type": "object",
+  "required": ["schemaVersion", "packId", "title", "license", "attribution", "entries"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "packId": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,63}$" },
+    "title": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "license": { "const": "CC-BY-4.0" },
+    "attribution": {
+      "type": "object",
+      "required": ["author", "source", "modified"],
+      "additionalProperties": false,
+      "properties": {
+        "author": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "source": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "modified": { "type": "boolean" }
+      }
+    },
+    "entries": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 200,
+      "items": {
+        "type": "object",
+        "required": ["id", "kind", "title", "summary", "observableFacts", "actionAffordances", "resourceRules"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,63}$" },
+          "kind": { "enum": ["place", "profession", "resource", "rule_primitive"] },
+          "title": { "type": "string", "minLength": 1, "maxLength": 80 },
+          "summary": { "type": "string", "minLength": 1, "maxLength": 500 },
+          "observableFacts": { "type": "array", "maxItems": 24, "items": { "type": "string", "minLength": 1, "maxLength": 240 } },
+          "actionAffordances": { "type": "array", "maxItems": 24, "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]{1,47}$" } },
+          "resourceRules": {
+            "type": "array",
+            "maxItems": 24,
+            "items": {
+              "type": "object",
+              "required": ["resourceId", "operation", "amount", "expiresAfterTicks"],
+              "additionalProperties": false,
+              "properties": {
+                "resourceId": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,63}$" },
+                "operation": { "enum": ["produce", "consume", "expire", "recycle"] },
+                "amount": { "type": "integer", "minimum": 1, "maximum": 10000 },
+                "expiresAfterTicks": { "type": "integer", "minimum": 0, "maximum": 1000000 }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

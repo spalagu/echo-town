@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://echo-town.example/schema/asset-license-v1.json",
+  "title": "Echo Town 资产许可旁车 v1",
+  "type": "object",
+  "required": ["schemaVersion", "assetPath", "license", "attribution"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "assetPath": { "type": "string", "pattern": "^assets/[a-zA-Z0-9._/-]+$" },
+    "license": { "enum": ["CC-BY-4.0", "CC0-1.0", "OFL-1.1"] },
+    "attribution": {
+      "type": "object",
+      "required": ["author", "source", "modified"],
+      "additionalProperties": false,
+      "properties": {
+        "author": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "source": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "modified": { "type": "boolean" }
+      }
+    }
+  }
+}

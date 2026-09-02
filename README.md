@@ -23,6 +23,8 @@ Echo Town 是一个浏览器本地运行的 2D AI 虚拟小镇。角色拥有稳
 - 12 个冻结人格与可解释 Persona Core；人格、价值、需要和心境会改变 Intent 排序，核心特质只会有边界地缓慢成长。
 - 四维 Capability 状态会显式呈现规则 AI、离线单人、世界暂停或仅当前会话等降级，不把缺失能力伪装成就绪。
 - 首次在线加载后，Service Worker 缓存版本化静态制品；断网重开仍可进入同一角色、记忆和离线单人世界。
+- 世界内容使用声明式 ContentPack v1；本地编译器拒绝剧本字段、远程脚本、HTML、可执行文件、缺失署名与超预算资产，并生成确定性内容清单。
+- Pull Request 门禁候选使用只读 token、零 secret、完整 SHA 固定的官方 Action 和七项独立检查；远端 Actions 与 Ruleset 尚未启用。
 - 内容寻址的静态构建清单；相同源码重复构建得到相同文件哈希。
 
 项目仍未启用 GitHub Actions、Ruleset 或 GitHub Pages，也没有公开可玩的线上版本。
@@ -54,6 +56,11 @@ npm run test:memory-scenarios
 npm run test:memory-browser
 npm run test:persona-scenarios
 npm run test:capability-scenarios
+npm run ci:workflow
+npm run ci:world-schema
+npm run ci:asset-budget
+npm run ci:license-policy
+npm run ci:content-safety
 ```
 
 `npm run build` 会先生成 Rust/WebAssembly 核心，再构建完全静态的浏览器制品和版本清单。浏览器测试通过本地静态预览访问交付制品，不依赖应用服务器或云模型。
