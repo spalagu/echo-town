@@ -5,6 +5,8 @@ const OBSERVATION_KEYS = new Set([
   "nearbyPlaces",
   "needs",
   "visibleEvents",
+  "recalledMemories",
+  "relationshipSignals",
 ]);
 
 const INTENT_KEYS = new Set(["schemaVersion", "intentType", "payload", "budget", "reasonCode"]);
@@ -12,6 +14,8 @@ const PAYLOAD_KEYS = new Set(["dx", "dy"]);
 const NEED_KEYS = new Set(["kind", "level"]);
 const PLACE_KEYS = new Set(["id", "dx", "dy", "tags"]);
 const EVENT_KEYS = new Set(["eventType", "actorId", "placeId", "logicalTime"]);
+const MEMORY_KEYS = new Set(["id", "kind", "sourceEventIds", "logicalTime", "effectiveConfidence"]);
+const RELATIONSHIP_KEYS = new Set(["otherActorId", "familiarity", "trust", "affinity", "respect", "fear", "intimacy"]);
 const NEED_KINDS = new Set(["rest", "social", "food", "safety", "curiosity", "belonging", "autonomy"]);
 
 function isPlainObject(value) {
@@ -49,6 +53,12 @@ export function sanitizeObservation(input) {
   if (!Array.isArray(input.nearbyPlaces) || input.nearbyPlaces.length > 12) throw new Error("Observation nearbyPlaces 非法");
   if (!Array.isArray(input.needs) || input.needs.length > 8) throw new Error("Observation needs 非法");
   if (!Array.isArray(input.visibleEvents) || input.visibleEvents.length > 24) throw new Error("Observation visibleEvents 非法");
+  if (input.recalledMemories !== undefined && (!Array.isArray(input.recalledMemories) || input.recalledMemories.length > 12)) {
+    throw new Error("Observation recalledMemories 非法");
+  }
+  if (input.relationshipSignals !== undefined && (!Array.isArray(input.relationshipSignals) || input.relationshipSignals.length > 12)) {
+    throw new Error("Observation relationshipSignals 非法");
+  }
 
   const nearbyPlaces = input.nearbyPlaces.map((place) => {
     if (!hasExactKeys(place, PLACE_KEYS) || !safeText(place.id) || !finiteInteger(place.dx, -100, 100) || !finiteInteger(place.dy, -100, 100)) {
@@ -72,6 +82,28 @@ export function sanitizeObservation(input) {
     }
     return { ...event };
   });
+  const recalledMemories = (input.recalledMemories ?? []).map((memory) => {
+    if (!hasExactKeys(memory, MEMORY_KEYS) || !safeText(memory.id, 96) || !safeText(memory.kind, 48)
+      || !Array.isArray(memory.sourceEventIds) || memory.sourceEventIds.length === 0 || memory.sourceEventIds.length > 16
+      || memory.sourceEventIds.some((id) => !safeText(id, 96))
+      || !finiteInteger(memory.logicalTime, 0, Number.MAX_SAFE_INTEGER)
+      || !finiteInteger(memory.effectiveConfidence, 0, 100)) {
+      throw new Error("Observation recalledMemory 非法");
+    }
+    return { ...memory, sourceEventIds: [...memory.sourceEventIds] };
+  });
+  const relationshipSignals = (input.relationshipSignals ?? []).map((relationship) => {
+    if (!hasExactKeys(relationship, RELATIONSHIP_KEYS) || !safeText(relationship.otherActorId, 96)
+      || !finiteInteger(relationship.familiarity, 0, 100)
+      || !finiteInteger(relationship.trust, -100, 100)
+      || !finiteInteger(relationship.affinity, -100, 100)
+      || !finiteInteger(relationship.respect, -100, 100)
+      || !finiteInteger(relationship.fear, 0, 100)
+      || !finiteInteger(relationship.intimacy, 0, 100)) {
+      throw new Error("Observation relationshipSignal 非法");
+    }
+    return { ...relationship };
+  });
   return {
     actorId: input.actorId,
     logicalTime: input.logicalTime,
@@ -79,6 +111,8 @@ export function sanitizeObservation(input) {
     nearbyPlaces,
     needs,
     visibleEvents,
+    recalledMemories,
+    relationshipSignals,
   };
 }
 

@@ -21,6 +21,8 @@
     "dev": "npm run dev --workspace @echo-town/web",
     "preview": "npm run preview --workspace @echo-town/web",
     "test:browser": "node tests/browser/ap01.mjs",
+    "test:autonomy-browser": "node tests/browser/ap22.mjs",
+    "test:autonomy-mutations": "node tests/browser/ap22-mutations.mjs",
     "test:capability": "node --test packages/capability-state/test/*.test.js",
     "test:capability-browser": "node tests/browser/ap08.mjs",
     "test:capability-scenarios": "node tests/capability/ap08.mjs",

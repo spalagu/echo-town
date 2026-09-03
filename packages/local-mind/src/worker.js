@@ -5,6 +5,7 @@ import { rankIntentCandidates } from "@echo-town/persona-core";
 
 const capability = new MindCapability();
 let languageModule;
+let forcedRules = false;
 
 function post(id, type, payload) {
   self.postMessage({ id, type, ...payload });
@@ -21,12 +22,18 @@ self.onmessage = async ({ data }) => {
   const { id, type } = data;
   try {
     if (type === "status") {
-      post(id, "result", { result: { ...capability.snapshot(), execution: "dedicated-worker" } });
+      post(id, "result", { result: { ...capability.snapshot(), ...(forcedRules ? { mode: "rules" } : {}), execution: "dedicated-worker" } });
       return;
     }
     if (type === "configure-cpu") {
+      forcedRules = false;
       capability.requestCpu();
       post(id, "result", { result: { ...capability.snapshot(), execution: "dedicated-worker" } });
+      return;
+    }
+    if (type === "force-rules") {
+      forcedRules = true;
+      post(id, "result", { result: { ...capability.snapshot(), mode: "rules", execution: "dedicated-worker" } });
       return;
     }
     if (type === "gate") {
@@ -44,7 +51,7 @@ self.onmessage = async ({ data }) => {
       : decideByRules(observation);
     let languageCandidate = null;
     let model = "rules";
-    const shouldTryCpu = capability.mode === "cpu-wasm" || capability.canProbe();
+    const shouldTryCpu = !forcedRules && (capability.mode === "cpu-wasm" || capability.canProbe());
     if (shouldTryCpu) {
       try {
         languageCandidate = await useCpuLanguage(observation, intents[0], id);

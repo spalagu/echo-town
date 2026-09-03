@@ -29,6 +29,40 @@ test("Observation 白名单拒绝私人字段", () => {
   assert.throws(() => sanitizeObservation({ ...observation(), privateMemory: "AP03_CANARY" }), /未授权字段/);
 });
 
+test("Observation 只接收来源化记忆与有界关系信号", () => {
+  const sanitized = sanitizeObservation({
+    ...observation(),
+    recalledMemories: [{
+      id: "memory-1",
+      kind: "event",
+      sourceEventIds: ["event-1"],
+      logicalTime: 1,
+      effectiveConfidence: 90,
+    }],
+    relationshipSignals: [{
+      otherActorId: "echo_neighbor",
+      familiarity: 1,
+      trust: 2,
+      affinity: 3,
+      respect: 4,
+      fear: 0,
+      intimacy: 0,
+    }],
+  });
+  assert.deepEqual(sanitized.recalledMemories[0].sourceEventIds, ["event-1"]);
+  assert.equal(sanitized.relationshipSignals[0].otherActorId, "echo_neighbor");
+  assert.throws(() => sanitizeObservation({
+    ...observation(),
+    recalledMemories: [{
+      id: "memory-1",
+      kind: "event",
+      sourceEventIds: [],
+      logicalTime: 1,
+      effectiveConfidence: 90,
+    }],
+  }), /recalledMemory/);
+});
+
 test("Intent gate 拒绝越权字段、越界移动和第四个 Intent", () => {
   const valid = decideByRules(observation())[0];
   assert.equal(gateIntentProposals([{ ...valid, writeWorldState: true }]).ok, false);
