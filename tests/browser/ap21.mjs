@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { createServer } from "node:net";
+import path from "node:path";
 import { chromium } from "playwright";
 
 async function availablePort() {
@@ -15,7 +16,8 @@ async function availablePort() {
 }
 
 const port = await availablePort();
-const server = spawn("npm", ["run", "preview", "--workspace", "@echo-town/web", "--", "--port", String(port), "--strictPort"], {
+const server = spawn(process.execPath, [path.resolve("node_modules/vite/bin/vite.js"), "preview", "--host", "127.0.0.1", "--port", String(port), "--strictPort"], {
+  cwd: path.resolve("apps/web"),
   stdio: ["ignore", "pipe", "pipe"],
   env: process.env,
 });
@@ -43,9 +45,9 @@ try {
     if (!request.url().startsWith(`http://127.0.0.1:${port}/`)) externalRequests.push(request.url());
   });
   await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: "networkidle" });
-  await page.waitForFunction(() => Boolean(window.__echoTownReady?.societySimulation));
+  await page.waitForFunction(() => Boolean(window.__echoTownSocietyReady?.societySimulation));
   const report = await page.evaluate(() => {
-    const { societySimulation: result, societyValidation } = window.__echoTownReady;
+    const { societySimulation: result, societyValidation } = window.__echoTownSocietyReady;
     const actions = result.events.filter((event) => event.actionAffordance);
     const actionIds = new Set(actions.map((event) => event.id));
     const memories = new Map(result.memories.map((memory) => [memory.id, memory]));

@@ -378,6 +378,7 @@ async function bootstrap() {
   const societySimulation = simulateSociety(initialStatePacks[0], situationSeeds, societySeed);
   const societyValidation = validateSimulationResult(societySimulation, initialStatePacks[0], situationSeeds);
   if (!societyValidation.ok) throw new Error(`社会运行时不变量失败：${societyValidation.reason}`);
+  window.__echoTownSocietyReady = { societySimulation, societyValidation };
   document.querySelector("#actor-name").textContent = identity.profile.name;
   document.querySelector("#actor-id").textContent = identity.actorId.slice(0, 18);
   document.querySelector("#identity-mark").style.background = identity.profile.appearance.primaryColor;
