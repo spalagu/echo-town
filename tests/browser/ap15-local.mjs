@@ -15,7 +15,7 @@ async function availablePort() {
   return port;
 }
 
-const expectedCommit = process.env.GITHUB_SHA || process.env.SOURCE_COMMIT;
+const expectedCommit = process.env.SOURCE_COMMIT || process.env.GITHUB_SHA;
 if (!/^[0-9a-f]{40}$/u.test(expectedCommit || "")) throw new Error("AP-15 本地浏览器验收需要 40 位 SOURCE_COMMIT/GITHUB_SHA");
 const port = await availablePort();
 const origin = `http://127.0.0.1:${port}/`;

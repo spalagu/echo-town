@@ -49,6 +49,12 @@ export function validateVersionManifestWriter(text) {
     : ["version-manifest 必须优先绑定显式 SOURCE_COMMIT，不能优先采用 GitHub 合成 merge SHA"];
 }
 
+export function validatePagesBrowserCommit(text) {
+  return /expectedCommit\s*=\s*process\.env\.SOURCE_COMMIT\s*\|\|\s*process\.env\.GITHUB_SHA/u.test(text)
+    ? []
+    : ["Pages 浏览器验收必须优先核对显式 SOURCE_COMMIT，不能优先采用 GitHub 合成 merge SHA"];
+}
+
 export function validateRuleset(value) {
   const problems = [];
   if (value?.target !== "branch" || value?.enforcement !== "active" || value?.bypass_actors?.length !== 0) problems.push("Ruleset 必须 active 且无 bypass actor");
@@ -67,17 +73,19 @@ export function validateRuleset(value) {
 }
 
 export async function verifyRepository(root) {
-  const [workflow, codeowners, rulesetText, versionManifestWriter] = await Promise.all([
+  const [workflow, codeowners, rulesetText, versionManifestWriter, pagesBrowserTest] = await Promise.all([
     readFile(path.join(root, ".github/workflows/pr.yml"), "utf8"),
     readFile(path.join(root, ".github/CODEOWNERS"), "utf8"),
     readFile(path.join(root, ".github/rulesets/main.json"), "utf8"),
     readFile(path.join(root, "apps/web/scripts/write-manifest.mjs"), "utf8"),
+    readFile(path.join(root, "tests/browser/ap15-local.mjs"), "utf8"),
   ]);
   return [
     ...validateWorkflow(workflow),
     ...validateCodeowners(codeowners),
     ...validateRuleset(JSON.parse(rulesetText)),
     ...validateVersionManifestWriter(versionManifestWriter),
+    ...validatePagesBrowserCommit(pagesBrowserTest),
   ];
 }
 

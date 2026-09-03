@@ -4,12 +4,13 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { compileWorld, inspectWorld } from "../../scripts/compile-world.mjs";
-import { validateCodeowners, validateVersionManifestWriter, validateWorkflow, verifyRepository } from "../../scripts/verify-pr-security.mjs";
+import { validateCodeowners, validatePagesBrowserCommit, validateVersionManifestWriter, validateWorkflow, verifyRepository } from "../../scripts/verify-pr-security.mjs";
 
 const root = path.resolve(".");
 const workflow = await readFile(path.join(root, ".github/workflows/pr.yml"), "utf8");
 const codeowners = await readFile(path.join(root, ".github/CODEOWNERS"), "utf8");
 const versionManifestWriter = await readFile(path.join(root, "apps/web/scripts/write-manifest.mjs"), "utf8");
+const pagesBrowserTest = await readFile(path.join(root, "tests/browser/ap15-local.mjs"), "utf8");
 const fixtures = JSON.parse(await readFile(new URL("./attack-fixtures.json", import.meta.url), "utf8"));
 
 test("正式 PR workflow、CODEOWNERS 与 Ruleset 安全契约通过", async () => {
@@ -27,6 +28,12 @@ test("PR checkout、version manifest 与 release manifest 都绑定贡献者 hea
     "process.env.GITHUB_SHA || process.env.SOURCE_COMMIT",
   );
   assert.ok(validateVersionManifestWriter(writerMutation).some((problem) => problem.includes("合成 merge SHA")));
+  assert.deepEqual(validatePagesBrowserCommit(pagesBrowserTest), []);
+  const browserMutation = pagesBrowserTest.replace(
+    "process.env.SOURCE_COMMIT || process.env.GITHUB_SHA",
+    "process.env.GITHUB_SHA || process.env.SOURCE_COMMIT",
+  );
+  assert.ok(validatePagesBrowserCommit(browserMutation).some((problem) => problem.includes("合成 merge SHA")));
 });
 
 test("世界内容编译完全确定且产出可发布 manifest", async () => {
