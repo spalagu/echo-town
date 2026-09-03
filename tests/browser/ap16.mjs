@@ -50,6 +50,7 @@ try {
   await page.waitForFunction(() => Boolean(window.__echoTownReady?.companion || window.__echoTownBootError));
   const bootError = await page.evaluate(() => window.__echoTownBootError?.message ?? null);
   assert.equal(bootError, null, `浏览器启动失败：${bootError}`);
+  await page.waitForFunction(() => window.__echoTownReady.autonomousLife.snapshot().status === "idle");
 
   const causalReport = await page.evaluate(() => {
     const { companion, worldCore } = window.__echoTownReady;
@@ -65,6 +66,7 @@ try {
       albumMemories: companion.memoryAlbum().length,
       returnSummary: companion.returnSummary(0, 30),
       worldStateHash: worldCore.state_hash(),
+      autonomyCycleCount: window.__echoTownReady.autonomousLife.snapshot().cycles.length,
     };
   });
   assert.equal(causalReport.behaviors, 20);
@@ -95,15 +97,24 @@ try {
   assert.equal(await page.locator(".respond-button").count(), 3);
   await page.locator(".respond-button").first().click();
   await page.waitForFunction(() => !document.querySelector("#influence-feedback").textContent.includes("等待角色回应"));
+  await page.waitForFunction(() => window.__echoTownReady.autonomousLife.snapshot().status === "idle");
 
-  const privacyReport = await page.evaluate((beforeHash) => {
+  const privacyReport = await page.evaluate(({ beforeHash, cycleCount }) => {
     const { companion, worldCore } = window.__echoTownReady;
     const projection = companion.publicProjection();
     const log = companion.influenceLog();
+    const autonomousChanges = window.__echoTownReady.autonomousLife.snapshot().cycles.slice(cycleCount)
+      .filter((cycle) => cycle.links.core && cycle.beforeStateHash && cycle.afterStateHash);
+    let expectedHash = beforeHash;
+    const autonomousChainClosed = autonomousChanges.every((cycle) => {
+      if (cycle.beforeStateHash !== expectedHash) return false;
+      expectedHash = cycle.afterStateHash;
+      return true;
+    });
     return {
       publicProjection: projection,
       publicContainsCanary: JSON.stringify(projection).includes("PRIVATE-AP16-CANARY"),
-      worldStateUnchanged: worldCore.state_hash() === beforeHash,
+      worldChangesOnlyFromAutonomy: autonomousChainClosed && worldCore.state_hash() === expectedHash,
       consideredStatus: log[0].status,
       considerationSources: {
         memories: log[0].sourceMemoryIds.length,
@@ -113,10 +124,10 @@ try {
       allPrivate: companion.heartRoom().every((item) => item.private && !item.worldFact && !item.networkEligible)
         && log.every((item) => item.private && !item.worldFact && !item.networkEligible),
     };
-  }, causalReport.worldStateHash);
+  }, { beforeHash: causalReport.worldStateHash, cycleCount: causalReport.autonomyCycleCount });
   assert.deepEqual(privacyReport.publicProjection, { schemaVersion: 1, activities: [] });
   assert.equal(privacyReport.publicContainsCanary, false);
-  assert.equal(privacyReport.worldStateUnchanged, true);
+  assert.equal(privacyReport.worldChangesOnlyFromAutonomy, true);
   assert.ok(["accepted_as_influence", "refused"].includes(privacyReport.consideredStatus));
   assert.ok(privacyReport.considerationSources.memories > 0);
   assert.ok(privacyReport.considerationSources.relationships > 0);

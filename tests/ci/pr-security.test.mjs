@@ -4,17 +4,30 @@ import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { compileWorld, inspectWorld } from "../../scripts/compile-world.mjs";
-import { validateCodeowners, validatePagesBrowserCommit, validateVersionManifestWriter, validateWorkflow, verifyRepository } from "../../scripts/verify-pr-security.mjs";
+import { SPALAGU_ACTOR_ID, validateCodeowners, validatePagesBrowserCommit, validateRulesets, validateVersionManifestWriter, validateWorkflow, verifyRepository } from "../../scripts/verify-pr-security.mjs";
 
 const root = path.resolve(".");
 const workflow = await readFile(path.join(root, ".github/workflows/pr.yml"), "utf8");
 const codeowners = await readFile(path.join(root, ".github/CODEOWNERS"), "utf8");
+const coreRuleset = JSON.parse(await readFile(path.join(root, ".github/rulesets/main.json"), "utf8"));
+const reviewRuleset = JSON.parse(await readFile(path.join(root, ".github/rulesets/review.json"), "utf8"));
 const versionManifestWriter = await readFile(path.join(root, "apps/web/scripts/write-manifest.mjs"), "utf8");
 const pagesBrowserTest = await readFile(path.join(root, "tests/browser/ap15-local.mjs"), "utf8");
 const fixtures = JSON.parse(await readFile(new URL("./attack-fixtures.json", import.meta.url), "utf8"));
 
 test("正式 PR workflow、CODEOWNERS 与 Ruleset 安全契约通过", async () => {
   assert.deepEqual(await verifyRepository(root), []);
+});
+
+test("核心保护不可绕过，spalagu 只能在人工评审层以 Pull Request 模式绕过", () => {
+  assert.deepEqual(validateRulesets(coreRuleset, reviewRuleset), []);
+  assert.equal(reviewRuleset.bypass_actors[0].actor_id, SPALAGU_ACTOR_ID);
+  const coreBypassMutation = structuredClone(coreRuleset);
+  coreBypassMutation.bypass_actors.push({ actor_id: SPALAGU_ACTOR_ID, actor_type: "User", bypass_mode: "pull_request" });
+  assert.ok(validateRulesets(coreBypassMutation, reviewRuleset).some((problem) => problem.includes("核心 Ruleset")));
+  const broadReviewBypassMutation = structuredClone(reviewRuleset);
+  broadReviewBypassMutation.bypass_actors[0].bypass_mode = "always";
+  assert.ok(validateRulesets(coreRuleset, broadReviewBypassMutation).some((problem) => problem.includes("人工评审 Ruleset")));
 });
 
 test("PR checkout、version manifest 与 release manifest 都绑定贡献者 head SHA，不接受合成 merge SHA", () => {

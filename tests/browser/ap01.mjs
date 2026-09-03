@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { createServer } from "node:net";
+import path from "node:path";
 import { chromium } from "playwright";
 
 async function availablePort() {
@@ -15,7 +16,8 @@ async function availablePort() {
 }
 
 const port = await availablePort();
-const server = spawn("npm", ["run", "preview", "--workspace", "@echo-town/web", "--", "--port", String(port), "--strictPort"], {
+const server = spawn(process.execPath, [path.resolve("node_modules/vite/bin/vite.js"), "preview", "--host", "127.0.0.1", "--port", String(port), "--strictPort"], {
+  cwd: path.resolve("apps/web"),
   stdio: ["ignore", "pipe", "pipe"],
   env: process.env,
 });
@@ -44,20 +46,19 @@ try {
   await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: "networkidle" });
   await page.waitForFunction(() => Boolean(window.__echoTownReady));
   const initial = await page.evaluate(() => window.__echoTown.position());
-  await page.evaluate(() => window.__echoTown.moveTo(156, 116));
-  await page.waitForFunction(() => {
-    const position = window.__echoTown.position();
-    return Math.hypot(position.x - 156, position.y - 116) < 80;
-  });
+  await page.waitForFunction(() => window.__echoTownReady.autonomousLife.snapshot().cycles.filter((cycle) => cycle.stage === "completed").length >= 2);
   const moved = await page.evaluate(() => window.__echoTown.position());
-  assert.ok(Math.hypot(moved.x - initial.x, moved.y - initial.y) > 100, "角色应当移动");
-  const interaction = await page.evaluate(() => ({
-    ...window.__echoTown.interact(),
+  assert.ok(Math.hypot(moved.x - initial.x, moved.y - initial.y) > 20, "角色应当由自主 Event 推动");
+  const runtime = await page.evaluate(() => ({
+    directControl: window.__echoTown.directControl,
+    moveToType: typeof window.__echoTown.moveTo,
     worldContent: window.__echoTownReady.worldContent,
+    autonomy: window.__echoTownReady.autonomousLife.snapshot(),
   }));
-  assert.equal(interaction.place, "旧钟楼");
-  assert.equal(interaction.worldContent.schemaVersion, 1);
-  assert.ok(interaction.worldContent.packs
+  assert.equal(runtime.directControl, false);
+  assert.equal(runtime.moveToType, "undefined");
+  assert.equal(runtime.worldContent.schemaVersion, 1);
+  assert.ok(runtime.worldContent.packs
     .flatMap((pack) => pack.content?.entries ?? [])
     .some((entry) => entry.id === "old-clocktower"), "编译后的世界内容必须包含旧钟楼");
   const socialFoundation = await page.evaluate(() => window.__echoTownReady.socialFoundation);
@@ -70,7 +71,7 @@ try {
   assert.ok(await page.locator("canvas").isVisible());
   await page.screenshot({ path: process.env.ECHO_TOWN_SCREENSHOT || "ap01-echo-town.png", fullPage: true });
   await browser.close();
-  console.log(JSON.stringify({ manifest: manifest.version, assets: manifest.assets.length, interaction, socialFoundation, networkRequests: network.length, wasmStateHash: stateHash }));
+  console.log(JSON.stringify({ manifest: manifest.version, assets: manifest.assets.length, autonomousCycles: runtime.autonomy.cycles.length, socialFoundation, networkRequests: network.length, wasmStateHash: stateHash }));
 } finally {
   server.kill("SIGTERM");
 }

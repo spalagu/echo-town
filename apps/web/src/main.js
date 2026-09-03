@@ -15,12 +15,15 @@ import { IndexedDbWorldSyncStore, PublicWorldSyncSession, validatePublicNodeRegi
 import { openPublicRendezvous } from "@echo-town/world-sync/trystero";
 import initWorldCore, { WasmWorldCore } from "../../../crates/world-core/pkg/echo_town_world_core.js";
 import worldCoreUrl from "../../../crates/world-core/pkg/echo_town_world_core_bg.wasm?url";
+import { AutonomousLifeRuntime, localMutationMode } from "./autonomous-life.js";
 import "./styles.css";
 
 const WORLD_WIDTH = 960;
 const WORLD_HEIGHT = 540;
 const TILE = 24;
 const VISIBLE_ROLE_BUDGET = 20;
+let resolveSceneReady;
+const sceneReady = new Promise((resolve) => { resolveSceneReady = resolve; });
 
 const places = [
   { id: "old-clocktower", name: "旧钟楼", x: 156, y: 116, color: 0xb66f45, message: "钟停在一个无人记得的时刻。有人说，雨夜里它会多响一下。" },
@@ -275,14 +278,14 @@ class EchoTownScene extends Phaser.Scene {
     this.player = this.add.circle(480, 270, 10, 0xf0d184).setDepth(5).setName("player-role");
     this.player.setStrokeStyle(3, 0x283a33);
     this.target = new Phaser.Math.Vector2(this.player.x, this.player.y);
-    this.keys = this.input.keyboard.addKeys("W,A,S,D,UP,DOWN,LEFT,RIGHT,E,SPACE");
-    this.input.on("pointerdown", (pointer) => this.target.set(pointer.worldX, pointer.worldY));
+    this.pendingProjection = null;
     window.__echoTown = {
       interact: () => this.interact(),
-      moveTo: (x, y) => this.target.set(x, y),
       position: () => ({ x: this.player.x, y: this.player.y }),
       visibleRoleCount: () => VISIBLE_ROLE_BUDGET,
+      directControl: false,
     };
+    resolveSceneReady(this);
   }
 
   drawTown() {
@@ -313,16 +316,39 @@ class EchoTownScene extends Phaser.Scene {
 
   update(_, delta) {
     const speed = 0.19 * delta;
-    const horizontal = Number(this.keys.D.isDown || this.keys.RIGHT.isDown) - Number(this.keys.A.isDown || this.keys.LEFT.isDown);
-    const vertical = Number(this.keys.S.isDown || this.keys.DOWN.isDown) - Number(this.keys.W.isDown || this.keys.UP.isDown);
-    if (horizontal || vertical) this.target.set(this.player.x + horizontal * speed, this.player.y + vertical * speed);
     const distance = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.target.x, this.target.y);
     if (distance > 2) {
       const angle = Phaser.Math.Angle.Between(this.player.x, this.player.y, this.target.x, this.target.y);
       this.player.x = Phaser.Math.Clamp(this.player.x + Math.cos(angle) * Math.min(speed, distance), 12, WORLD_WIDTH - 12);
       this.player.y = Phaser.Math.Clamp(this.player.y + Math.sin(angle) * Math.min(speed, distance), 12, WORLD_HEIGHT - 76);
     }
-    if (Phaser.Input.Keyboard.JustDown(this.keys.E) || Phaser.Input.Keyboard.JustDown(this.keys.SPACE)) this.interact();
+    if (this.pendingProjection && distance <= 2) {
+      const pending = this.pendingProjection;
+      this.pendingProjection = null;
+      pending.resolve({ x: this.player.x, y: this.player.y });
+    } else if (this.pendingProjection && performance.now() > this.pendingProjection.deadline) {
+      const pending = this.pendingProjection;
+      this.pendingProjection = null;
+      pending.reject(new Error("Phaser 场景未在 1 秒内完成 Event 投影"));
+    }
+  }
+
+  projectEvent(event, state) {
+    if (event.eventType !== "ActorMoved" || event.actorId === undefined) throw new Error("场景只能投影已接受的角色移动 Event");
+    const actor = state.actors[event.actorId];
+    if (!actor) throw new Error("场景投影缺少权威角色状态");
+    this.target.set(
+      Phaser.Math.Clamp(WORLD_WIDTH / 2 + actor.x * TILE, 12, WORLD_WIDTH - 12),
+      Phaser.Math.Clamp(WORLD_HEIGHT / 2 + actor.y * TILE, 12, WORLD_HEIGHT - 76),
+    );
+    return new Promise((resolve, reject) => {
+      const distance = Phaser.Math.Distance.Between(this.player.x, this.player.y, this.target.x, this.target.y);
+      if (distance <= 2) {
+        resolve({ x: this.player.x, y: this.player.y });
+        return;
+      }
+      this.pendingProjection = { resolve, reject, deadline: performance.now() + 1_000 };
+    });
   }
 
   interact() {
@@ -509,25 +535,12 @@ async function bootstrap() {
     memoryGraph.consolidate(0);
     await memoryStore.set(memoryGraph.snapshot());
   }
+  const forceRules = new URLSearchParams(location.search).get("forceRules") === "1";
+  if (forceRules) await localMind.forceRules();
   const localMindStatus = await localMind.status();
-  const firstDecision = await localMind.decide({
-    actorId: identity.actorId,
-    logicalTime: 0,
-    position: { x: 0, y: 0 },
-    nearbyPlaces: [
-      { id: "old-clocktower", dx: -1, dy: -1, tags: ["curiosity"] },
-      { id: "river-market", dx: 1, dy: 1, tags: ["social"] },
-    ],
-    needs: [{ kind: "social", level: 62 }],
-    visibleEvents: [],
-  }, { personaProfile, dilemma: DILEMMA_FIXTURES[0] });
-  const chosen = firstDecision.personaDecision.candidates[0];
-  const strongestReasons = chosen.factors.slice(0, 3)
-    .map((factor) => `${factor.path}=${factor.value}（${factor.contribution > 0 ? "+" : ""}${factor.contribution}）`)
-    .join("；");
-  document.querySelector("#mind-status").textContent = `角色心智：${localMindStatus.mode} · ${localMindStatus.execution} · 人格 ${personaProfile.id} 选择“${chosen.label}” · 理由：${strongestReasons} · 语气：${chosen.voice} · ${memoryGraph.allMemories().length} 条有来源记忆`;
+  document.querySelector("#mind-status").textContent = `角色心智：${localMindStatus.mode} · ${localMindStatus.execution} · 正在构造首次观察……`;
   const offlineLabel = offlineWorker.controlled ? "离线缓存就绪" : "离线缓存未接管";
-  document.querySelector("#runtime-status").textContent = `本地身份、AI Worker、Wasm 核心与${offlineLabel} · 社会运行时 ${societySimulation.events.length} 个事件 / ${societySimulation.claims.length} 个观点 · ${socialFoundation.initialStatePacks} 个初态 / ${socialFoundation.situationSeeds} 个情境 · ${manifest.version} · ${manifest.assets.length} 项静态资源`;
+  document.querySelector("#runtime-status").textContent = `本地身份、AI Worker、Wasm 核心与${offlineLabel} · 正在接通持续自主生活循环 · ${manifest.version} · ${manifest.assets.length} 项静态资源`;
 
   const game = new Phaser.Game({
     type: Phaser.AUTO,
@@ -539,10 +552,11 @@ async function bootstrap() {
     render: { antialias: false, pixelArt: true },
     scale: { mode: Phaser.Scale.FIT, autoCenter: Phaser.Scale.CENTER_BOTH },
   });
+  const townScene = await sceneReady;
   renderEngagementHooks(engagementState);
   setupCompanionUi(companion, companionStore, refreshEngagement);
   verifyFictionUi();
-  window.__echoTownReady = {
+  const ready = {
     identity,
     fictionBoundary,
     verifyFictionBoundary,
@@ -566,7 +580,7 @@ async function bootstrap() {
     connectWorldSync,
     prepareWorldSyncResync,
     privacyWireFields: PUBLIC_WIRE_FIELD_PATHS,
-    firstDecision,
+    firstDecision: null,
     personaProfile,
     companion,
     companionStore,
@@ -577,8 +591,47 @@ async function bootstrap() {
     dilemmaFixtures: DILEMMA_FIXTURES,
     memoryGraph,
     memoryStore,
+    initialStateHash: worldCore.state_hash(),
     stateHash: worldCore.state_hash(),
   };
+  const autonomousLife = new AutonomousLifeRuntime({
+    identity,
+    publicKeyHex,
+    worldCore,
+    localMind,
+    personaProfile,
+    dilemmas: DILEMMA_FIXTURES,
+    memoryGraph,
+    memoryStore,
+    relationshipActorId: companionInputs.sourceActorId,
+    projectEvent: (event, state) => townScene.projectEvent(event, state),
+    mutation: localMutationMode(),
+    onDecision: (decision) => {
+      if (!ready.firstDecision) ready.firstDecision = decision;
+    },
+    onCycle: (cycle, snapshot) => {
+      ready.stateHash = worldCore.state_hash();
+      if (cycle.stage === "completed") {
+        const strongestReasons = cycle.decision.factors
+          .map((factor) => `${factor.path}=${factor.value}（${factor.contribution > 0 ? "+" : ""}${factor.contribution}）`)
+          .join("；");
+        document.querySelector("#mind-status").textContent = `角色心智：${cycle.mindMode} · ${localMindStatus.execution} · 人格 ${personaProfile.id} 选择“${cycle.decision.label}” · 理由：${strongestReasons} · 语气：${cycle.decision.voice}`;
+        const relation = memoryGraph.relationship(identity.actorId, companionInputs.sourceActorId);
+        document.querySelector("#autonomy-status").textContent = `自主生活：${snapshot.cycles.filter((item) => item.stage === "completed").length} 轮 · 逻辑时刻 ${cycle.observation.logicalTime + 1} · ${memoryGraph.allMemories().length} 条来源化记忆 · 关系熟悉度 ${relation?.familiarity ?? 0}`;
+        document.querySelector("#runtime-status").textContent = `持续闭环已接受 Event ${cycle.acceptedEventId.slice(0, 12)}…并投影到地图 · ${offlineLabel} · ${manifest.version}`;
+      } else if (!cycle.error?.startsWith("mutation:")) {
+        document.querySelector("#autonomy-status").textContent = `自主生活本轮中断：${cycle.error}`;
+      }
+    },
+  });
+  ready.autonomousLife = Object.freeze({ snapshot: () => autonomousLife.snapshot() });
+  window.__echoTownReady = ready;
+  autonomousLife.start();
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) autonomousLife.stop();
+    else autonomousLife.start();
+  });
+  window.addEventListener("beforeunload", () => autonomousLife.stop(), { once: true });
   if (new URLSearchParams(location.search).get("sync") === "1") {
     connectWorldSync().catch((error) => worldSync.errors.push(error.message));
   }

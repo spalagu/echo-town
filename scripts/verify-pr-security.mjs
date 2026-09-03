@@ -5,6 +5,7 @@ import { pathToFileURL } from "node:url";
 export const REQUIRED_CHECKS = Object.freeze([
   "quality", "world-schema", "deterministic-replay", "asset-budget", "license-policy", "content-safety", "build",
 ]);
+export const SPALAGU_ACTOR_ID = 67864814;
 
 export function validateWorkflow(text) {
   const problems = [];
@@ -55,35 +56,57 @@ export function validatePagesBrowserCommit(text) {
     : ["Pages 浏览器验收必须优先核对显式 SOURCE_COMMIT，不能优先采用 GitHub 合成 merge SHA"];
 }
 
-export function validateRuleset(value) {
+export function validateRulesets(core, reviewRuleset) {
   const problems = [];
-  if (value?.target !== "branch" || value?.enforcement !== "active" || value?.bypass_actors?.length !== 0) problems.push("Ruleset 必须 active 且无 bypass actor");
-  if (!value?.conditions?.ref_name?.include?.includes("~DEFAULT_BRANCH")) problems.push("Ruleset 未覆盖默认分支");
-  const byType = new Map((value?.rules || []).map((rule) => [rule.type, rule]));
-  for (const type of ["deletion", "non_fast_forward", "pull_request", "required_status_checks"]) if (!byType.has(type)) problems.push(`Ruleset 缺少 ${type}`);
-  const review = byType.get("pull_request")?.parameters;
-  if (!review || review.required_approving_review_count < 1 || !review.dismiss_stale_reviews_on_push
-    || !review.require_code_owner_review || !review.require_last_push_approval || !review.required_review_thread_resolution) {
-    problems.push("Ruleset 评审参数未闭合");
+  if (core?.name !== "Echo Town core protection" || core?.target !== "branch" || core?.enforcement !== "active" || core?.bypass_actors?.length !== 0) {
+    problems.push("核心 Ruleset 必须 active 且无 bypass actor");
   }
-  const checks = byType.get("required_status_checks")?.parameters;
+  if (!core?.conditions?.ref_name?.include?.includes("~DEFAULT_BRANCH")) problems.push("核心 Ruleset 未覆盖默认分支");
+  const coreByType = new Map((core?.rules || []).map((rule) => [rule.type, rule]));
+  for (const type of ["deletion", "non_fast_forward", "pull_request", "required_status_checks"]) {
+    if (!coreByType.has(type)) problems.push(`核心 Ruleset 缺少 ${type}`);
+  }
+  const corePullRequest = coreByType.get("pull_request")?.parameters;
+  if (!corePullRequest || corePullRequest.required_approving_review_count !== 0
+    || corePullRequest.dismiss_stale_reviews_on_push || corePullRequest.require_code_owner_review
+    || corePullRequest.require_last_push_approval || !corePullRequest.required_review_thread_resolution) {
+    problems.push("核心 Ruleset 必须只保留 PR 与讨论解决门，不得携带人工评审门");
+  }
+  const checks = coreByType.get("required_status_checks")?.parameters;
   const contexts = new Set((checks?.required_status_checks || []).map((item) => item.context));
-  if (!checks?.strict_required_status_checks_policy || REQUIRED_CHECKS.some((check) => !contexts.has(check))) problems.push("Ruleset 必需检查不完整或不严格");
+  if (!checks?.strict_required_status_checks_policy || REQUIRED_CHECKS.some((check) => !contexts.has(check))) {
+    problems.push("核心 Ruleset 必需检查不完整或不严格");
+  }
+
+  const bypass = reviewRuleset?.bypass_actors || [];
+  if (reviewRuleset?.name !== "Echo Town human review" || reviewRuleset?.target !== "branch" || reviewRuleset?.enforcement !== "active"
+    || bypass.length !== 1 || bypass[0]?.actor_id !== SPALAGU_ACTOR_ID || bypass[0]?.actor_type !== "User" || bypass[0]?.bypass_mode !== "pull_request") {
+    problems.push("人工评审 Ruleset 必须仅允许 spalagu 在 Pull Request 内 bypass");
+  }
+  if (!reviewRuleset?.conditions?.ref_name?.include?.includes("~DEFAULT_BRANCH")) problems.push("人工评审 Ruleset 未覆盖默认分支");
+  const reviewByType = new Map((reviewRuleset?.rules || []).map((rule) => [rule.type, rule]));
+  if (reviewByType.size !== 1 || !reviewByType.has("pull_request")) problems.push("人工评审 Ruleset 只能包含 pull_request 规则");
+  const review = reviewByType.get("pull_request")?.parameters;
+  if (!review || review.required_approving_review_count < 1 || !review.dismiss_stale_reviews_on_push
+    || !review.require_code_owner_review || !review.require_last_push_approval || review.required_review_thread_resolution) {
+    problems.push("人工评审 Ruleset 的批准、CODEOWNER 与最后推送门未闭合");
+  }
   return problems;
 }
 
 export async function verifyRepository(root) {
-  const [workflow, codeowners, rulesetText, versionManifestWriter, pagesBrowserTest] = await Promise.all([
+  const [workflow, codeowners, coreRulesetText, reviewRulesetText, versionManifestWriter, pagesBrowserTest] = await Promise.all([
     readFile(path.join(root, ".github/workflows/pr.yml"), "utf8"),
     readFile(path.join(root, ".github/CODEOWNERS"), "utf8"),
     readFile(path.join(root, ".github/rulesets/main.json"), "utf8"),
+    readFile(path.join(root, ".github/rulesets/review.json"), "utf8"),
     readFile(path.join(root, "apps/web/scripts/write-manifest.mjs"), "utf8"),
     readFile(path.join(root, "tests/browser/ap15-local.mjs"), "utf8"),
   ]);
   return [
     ...validateWorkflow(workflow),
     ...validateCodeowners(codeowners),
-    ...validateRuleset(JSON.parse(rulesetText)),
+    ...validateRulesets(JSON.parse(coreRulesetText), JSON.parse(reviewRulesetText)),
     ...validateVersionManifestWriter(versionManifestWriter),
     ...validatePagesBrowserCommit(pagesBrowserTest),
   ];
@@ -93,7 +116,7 @@ async function main() {
   const root = path.resolve(process.argv[2] || ".");
   const problems = await verifyRepository(root);
   if (problems.length) throw new Error(problems.join("\n"));
-  console.log(`PR 安全契约通过：${REQUIRED_CHECKS.length} 个必需检查，token 只读，零 secret，零部署，Ruleset 无 bypass`);
+  console.log(`PR 安全契约通过：${REQUIRED_CHECKS.length} 个必需检查，token 只读，零 secret，零部署；核心 Ruleset 零 bypass，人工评审 Ruleset 仅允许 spalagu 在 PR 内 bypass`);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {

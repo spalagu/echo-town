@@ -13,9 +13,9 @@ Echo Town 是一个浏览器本地运行的 2D AI 虚拟小镇。角色拥有稳
 
 ## 当前阶段
 
-项目正在收尾 M2，首个可运行纵切面已经进入公开发布流程：
+项目正在验证 M3 的首个可玩候选。公开 GitHub Pages 仍是旧 M2 制品：旧制品具备组件与发布链，但零输入时不会持续推进角色生活，不能称为首个可玩版本。M3 当前只在本地分支验证，尚未推送或部署。
 
-- Phaser 4 的静态 2D 小镇，可移动并与四处地点互动。
+- Phaser 4 的静态 2D 小镇；角色位置只由 Rust/WebAssembly 核心接受的 Event 投影，玩家在观察席陪伴和施加可拒绝影响，不用 WASD、方向键或地图点击直接遥控角色。
 - 浏览器本地随机居民、Ed25519 签名密钥、IndexedDB 持久化和口令加密导入导出。
 - Rust 编写并编译到 WebAssembly 的确定性 World Core，负责签名、序列、预算、观察哈希和移动范围校验。
 - Dedicated Worker 内的规则优先 Local Mind；CPU/Wasm 小模型只生成低频语言候选，失败后降级规则模式。
@@ -26,13 +26,14 @@ Echo Town 是一个浏览器本地运行的 2D AI 虚拟小镇。角色拥有稳
 - 首次在线加载后，Service Worker 缓存版本化静态制品；断网重开仍可进入同一角色、记忆和离线单人世界。
 - 世界内容使用声明式 ContentPack v1、InitialStatePack v1 与 SituationSeed v1；本地编译器拒绝角色槽位、剧情阶段、预期结果、结局、远程脚本、HTML、可执行文件、缺失署名与超预算资产，并生成确定性内容清单。
 - Public Discourse 只从真实 Event 追加观点，保留来源、受众、转述和反驳；热度不是真值。HistoricalSummary 只能事后读取 Event，Planner exact-key 白名单拒绝摘要回灌。
-- 3 个初态包和 5 个情境种子会经过 12 人格 × 30 world seed 的确定性社会模拟；观察、角色自己的记忆、可见舆论、关系和资源张力会进入多轮决策，浏览器制品也会运行同一套社会运行时。社区只能贡献开端、约束和行动可能性，不能提交剧本结果。
+- 3 个初态包和 5 个情境种子会经过 12 人格 × 30 world seed 的确定性社会模拟；该模拟是内容与社会规则的组件证据，不再被当作正式页面持续运行的证明。
+- M3 正式页面以单一低频编排器持续执行“逻辑时钟/Observation → Dedicated Worker Local Mind → 签名 Intent → Rust/Wasm World Core → Event → Memory Graph/Relationship View → Phaser”。每轮 Observation 会读回上一轮的权威位置、来源化记忆和关系信号，任何渲染帧或 UI 都不能绕过 World Core 改位置。
 - Pull Request 门禁使用只读 token、零 secret、完整 SHA 固定的官方 Action 和七项独立检查；Pages 发布只在 `main` push 后从合并 SHA 全量重建，构建 job 只读，只有 deploy job 拥有 Pages/OIDC 写权限。
 - 内容寻址的静态构建清单；相同源码重复构建得到相同文件哈希。
 
 ## 在线体验
 
-公开入口：[https://spalagu.github.io/echo-town/](https://spalagu.github.io/echo-town/)。首次打开需要下载静态资源，之后可由 Service Worker 支持离线重开；第三方公共协调节点不可用时会明确降级为离线单人模式。
+公开入口：[https://spalagu.github.io/echo-town/](https://spalagu.github.io/echo-town/)。该 URL 当前仍运行旧 M2 制品，尚未包含 M3 持续自主生活闭环；只有 M3 获得独立发布批准并通过部署后 60 秒零输入复验，README 才会把线上版本重新标为首个可玩版本。首次打开需要下载静态资源，之后可由 Service Worker 支持离线重开；第三方公共协调节点不可用时会明确降级为离线单人模式。
 
 ## 本地复验
 
@@ -63,6 +64,8 @@ npm run test:persona-scenarios
 npm run test:capability-scenarios
 npm run test:society-scenarios
 npm run test:society-browser
+npm run test:autonomy-browser
+npm run test:autonomy-mutations
 npm run test:world-sync
 npm run test:serverless
 npm run test:world-sync-browser
@@ -80,6 +83,8 @@ SOURCE_COMMIT=$(git rev-parse HEAD) npm run test:pages-browser
 ```
 
 `npm run build` 会先生成 Rust/WebAssembly 核心，再构建完全静态的浏览器制品和版本清单。浏览器测试通过本地静态预览访问交付制品，不依赖应用服务器或云模型。
+
+`npm run test:autonomy-browser` 对同一正式静态制品分别运行两段 60 秒零输入黑盒，核对决策频率、单轮并发、World Core 哈希、来源化记忆、关系变化和 Phaser 位置；`npm run test:autonomy-mutations` 分别断开时钟、Observation、Local Mind、World Core、记忆/关系和场景投影，要求同一因果不变量全部判红。组件单测、预计算历史、随机动画和测试 API 移动都不能替代这两项证据。
 
 `npm run test:world-sync-browser` 会用随机房间和两个隔离浏览器对第三方公共 Nostr relay、WebTorrent tracker 与真实 WebRTC 直连做一次低负载黑盒。公共节点没有项目可控 SLA；测试失败时产品必须显示离线状态，不得通过部署项目节点补洞。
 

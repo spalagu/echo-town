@@ -47,7 +47,7 @@ try {
     await ready.offlineStore.set(ready.offlineQueue.snapshot());
     const cacheNames = await caches.keys();
     const entries = await caches.open(cacheNames[0]).then((cache) => cache.keys());
-    return { actorId: owner, stateHash: ready.stateHash, cacheNames, cacheEntries: entries.length, cacheUrls: entries.map((request) => request.url) };
+    return { actorId: owner, initialStateHash: ready.initialStateHash, cacheNames, cacheEntries: entries.length, cacheUrls: entries.map((request) => request.url) };
   });
   assert.ok(online.cacheNames.some((name) => name.startsWith("echo-town-")));
   assert.ok(online.cacheEntries >= 10);
@@ -78,7 +78,7 @@ try {
       const ready = window.__echoTownReady;
       return {
         actorId: ready.identity.actorId,
-        stateHash: ready.stateHash,
+        initialStateHash: ready.initialStateHash,
         hasMemory: Boolean(ready.memoryGraph.memory("ap11-offline-memory")),
         pending: ready.offlineQueue.prepareResync().activities.length,
         containsPrivatePayload: ready.offlineQueue.prepareResync().containsPrivatePayload,
@@ -92,7 +92,7 @@ try {
     await page.close();
   }
   assert.ok(reopens.every((item) => item.actorId === online.actorId));
-  assert.ok(reopens.every((item) => item.stateHash === online.stateHash));
+  assert.ok(reopens.every((item) => item.initialStateHash === online.initialStateHash));
   assert.ok(reopens.every((item) => item.hasMemory && item.pending === 1 && !item.containsPrivatePayload));
   assert.ok(reopens.every((item) => item.capabilityText.includes("连接不可用") && item.capabilityText.includes("离线单人")));
   assert.ok(reopens.every((item) => item.runtimeText.includes("离线缓存就绪") && item.canvas));

@@ -49,6 +49,7 @@ try {
   await page.waitForFunction(() => Boolean(window.__echoTownReady?.engagementState || window.__echoTownBootError));
   const bootError = await page.evaluate(() => window.__echoTownBootError?.message ?? null);
   assert.equal(bootError, null, `浏览器启动失败：${bootError}`);
+  await page.waitForFunction(() => window.__echoTownReady.autonomousLife.snapshot().status === "idle");
 
   const initial = await page.evaluate(() => {
     const ready = window.__echoTownReady;
@@ -73,6 +74,7 @@ try {
         || (Number.isInteger(item.expiresAtTick) && item.expiresAtTick > state.generatedAtTick)),
       influenceGap: state.coverageGaps.includes("influence"),
       beforeHash: ready.worldCore.state_hash(),
+      autonomyCycleCount: ready.autonomousLife.snapshot().cycles.length,
     };
   });
   assert.ok(initial.count >= 3 && initial.count <= 7);
@@ -91,28 +93,37 @@ try {
   await page.locator("#influence-form button[type=submit]").click();
   await page.locator(".respond-button").click();
   await page.waitForFunction(() => window.__echoTownReady.engagementState.hooks.some((item) => item.kind === "contribution"));
+  await page.waitForFunction(() => window.__echoTownReady.autonomousLife.snapshot().status === "idle");
 
-  const after = await page.evaluate((beforeHash) => {
+  const after = await page.evaluate(({ beforeHash, cycleCount }) => {
     const ready = window.__echoTownReady;
     const contribution = ready.engagementState.hooks.find((item) => item.kind === "contribution");
     const influence = ready.companion.influenceLog().find((item) => item.id === contribution.sourceInfluenceIds[0]);
+    const autonomousChanges = ready.autonomousLife.snapshot().cycles.slice(cycleCount)
+      .filter((cycle) => cycle.links.core && cycle.beforeStateHash && cycle.afterStateHash);
+    let expectedHash = beforeHash;
+    const autonomousChainClosed = autonomousChanges.every((cycle) => {
+      if (cycle.beforeStateHash !== expectedHash) return false;
+      expectedHash = cycle.afterStateHash;
+      return true;
+    });
     return {
       count: ready.engagementState.hooks.length,
       status: influence.status,
       sourceEvents: contribution.sourceEventIds.length,
       sourceInfluences: contribution.sourceInfluenceIds.length,
       readOnly: contribution.readOnly && !contribution.worldWritable,
-      worldStateUnchanged: ready.worldCore.state_hash() === beforeHash,
+      worldChangesOnlyFromAutonomy: autonomousChainClosed && ready.worldCore.state_hash() === expectedHash,
       noPublicCanary: !JSON.stringify(ready.companion.publicProjection()).includes("AP19-LOCAL-CANARY"),
       hasGoals: Object.hasOwn(ready.engagementState, "goals"),
       hasEvents: Object.hasOwn(ready.engagementState, "events"),
     };
-  }, initial.beforeHash);
+  }, { beforeHash: initial.beforeHash, cycleCount: initial.autonomyCycleCount });
   assert.ok(after.count >= 3 && after.count <= 7);
   assert.ok(["accepted_as_influence", "refused"].includes(after.status));
   assert.ok(after.sourceEvents > 0 && after.sourceInfluences === 1);
   assert.equal(after.readOnly, true);
-  assert.equal(after.worldStateUnchanged, true);
+  assert.equal(after.worldChangesOnlyFromAutonomy, true);
   assert.equal(after.noPublicCanary, true);
   assert.equal(after.hasGoals, false);
   assert.equal(after.hasEvents, false);
