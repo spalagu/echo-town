@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "packType": "situation-seed",
+  "id": "distant-bell",
+  "title": "无人确认的远钟",
+  "license": "CC-BY-4.0",
+  "attribution": { "author": "Echo Town contributors", "source": "项目原创", "modified": false },
+  "trigger": { "kind": "signal", "startTick": 19, "durationTicks": 17, "intensity": 61 },
+  "observations": [
+    { "fact": "镇外方向传来三次间隔不等的钟声", "visibility": "public", "tags": ["signal", "distance"] },
+    { "fact": "靠近河面的人听到的最后一声更短", "visibility": "local", "tags": ["difference", "hearing"] }
+  ],
+  "resourceDeltas": [{ "resourceId": "timber", "amount": 4, "expiresAfterTicks": 18 }],
+  "actionAffordances": ["listen", "compare", "investigate", "share_claim", "ignore"]
+}

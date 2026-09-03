@@ -1,0 +1,30 @@
+{
+  "name": "@echo-town/web",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node ../../scripts/compile-world.mjs --root ../../world --output public/world-content-manifest.json && vite build --base ./ && node scripts/write-manifest.mjs && node scripts/write-service-worker.mjs && node scripts/write-manifest.mjs",
+    "dev": "vite --host 127.0.0.1",
+    "preview": "vite preview --host 127.0.0.1"
+  },
+  "dependencies": {
+    "@echo-town/capability-state": "*",
+    "@echo-town/companion-core": "*",
+    "@echo-town/engagement-director": "*",
+    "@echo-town/fiction-boundary": "*",
+    "@echo-town/identity-vault": "*",
+    "@echo-town/local-mind": "*",
+    "@echo-town/memory-graph": "*",
+    "@echo-town/mystery-fabric": "*",
+    "@echo-town/offline-runtime": "*",
+    "@echo-town/persona-core": "*",
+    "@echo-town/privacy-network": "*",
+    "@echo-town/public-discourse": "*",
+    "@echo-town/world-sync": "*",
+    "phaser": "4.0.0"
+  },
+  "devDependencies": {
+    "vite": "7.3.6"
+  }
+}

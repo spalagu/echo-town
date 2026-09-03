@@ -1,0 +1,15 @@
+{
+  "name": "@echo-town/engagement-director",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.js"
+  },
+  "devDependencies": {
+    "@echo-town/companion-core": "*",
+    "@echo-town/mystery-fabric": "*",
+    "@echo-town/persona-core": "*",
+    "@echo-town/public-discourse": "*"
+  }
+}

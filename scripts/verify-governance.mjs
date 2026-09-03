@@ -1,4 +1,6 @@
 import { access, readFile } from "node:fs/promises";
+import { verifyPagesRepository } from "./verify-pages-security.mjs";
+import { verifyRepository } from "./verify-pr-security.mjs";
 
 const requiredFiles = [
   "README.md",
@@ -9,6 +11,8 @@ const requiredFiles = [
   "CODE_OF_CONDUCT.md",
   "SECURITY.md",
   ".github/CODEOWNERS",
+  ".github/workflows/pages.yml",
+  "config/public-nodes.json",
 ];
 
 const failures = [];
@@ -18,20 +22,6 @@ for (const file of requiredFiles) {
     await access(file);
   } catch {
     failures.push(`缺少文件：${file}`);
-  }
-}
-
-const forbiddenWorkflowPaths = [
-  ".github/workflows/pr.yml",
-  ".github/workflows/pages.yml",
-];
-
-for (const file of forbiddenWorkflowPaths) {
-  try {
-    await access(file);
-    failures.push(`当前授权边界内不应存在：${file}`);
-  } catch {
-    // 文件不存在符合当前授权边界。
   }
 }
 
@@ -49,6 +39,13 @@ if (!failures.length) {
   if (!contentLicense.includes("CC BY 4.0")) {
     failures.push("LICENSE-CONTENT.md 缺少 CC BY 4.0 声明");
   }
+
+  try {
+    failures.push(...await verifyRepository("."));
+    failures.push(...await verifyPagesRepository("."));
+  } catch (error) {
+    failures.push(`治理安全候选缺失或无法读取：${error.message}`);
+  }
 }
 
 if (failures.length) {
@@ -57,4 +54,4 @@ if (failures.length) {
   process.exit(1);
 }
 
-console.log(`治理骨架检查通过：${requiredFiles.length}/${requiredFiles.length} 个必需文件存在；未配置 GitHub Actions 或 Pages。`);
+console.log(`治理骨架检查通过：${requiredFiles.length}/${requiredFiles.length} 个必需文件存在；PR 与 Pages 安全候选均通过；未执行外部部署。`);

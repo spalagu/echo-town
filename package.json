@@ -4,12 +4,81 @@
   "private": false,
   "description": "浏览器本地运行、由记忆与舆论驱动的非剧本化 AI 虚拟小镇",
   "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
-    "check": "node scripts/verify-governance.mjs",
-    "build": "node scripts/verify-governance.mjs"
+    "build": "npm run build:wasm && npm run build --workspace @echo-town/web",
+    "build:wasm": "sh scripts/build-wasm.sh",
+    "check": "node scripts/verify-governance.mjs && npm run test:unit && cargo test --workspace --release",
+    "ci:asset-budget": "node scripts/compile-world.mjs --gate asset-budget",
+    "ci:content-safety": "node scripts/compile-world.mjs --gate content-safety && node scripts/verify-fiction-ui.mjs",
+    "ci:license-policy": "node scripts/compile-world.mjs --gate license-policy && node scripts/check-dco.mjs",
+    "ci:pages": "node scripts/verify-pages-security.mjs && node --test tests/pages/*.test.mjs",
+    "ci:workflow": "node scripts/verify-pr-security.mjs && node --test tests/ci/*.test.mjs",
+    "ci:world-schema": "node scripts/compile-world.mjs --gate world-schema",
+    "dev": "npm run dev --workspace @echo-town/web",
+    "preview": "npm run preview --workspace @echo-town/web",
+    "test:browser": "node tests/browser/ap01.mjs",
+    "test:capability": "node --test packages/capability-state/test/*.test.js",
+    "test:capability-browser": "node tests/browser/ap08.mjs",
+    "test:capability-scenarios": "node tests/capability/ap08.mjs",
+    "test:companion": "node --test packages/companion-core/test/*.test.js",
+    "test:companion-browser": "node tests/browser/ap16.mjs",
+    "test:engagement": "node --test packages/engagement-director/test/*.test.js",
+    "test:engagement-browser": "node tests/browser/ap19-local.mjs",
+    "test:fiction-boundary": "node --test packages/fiction-boundary/test/*.test.js",
+    "test:fiction-boundary-browser": "node tests/browser/ap12.mjs",
+    "test:fiction-boundary-scenarios": "node tests/fiction/ap12.mjs",
+    "test:identity": "node --test packages/identity-vault/test/*.test.js",
+    "test:identity-browser": "node tests/browser/ap02.mjs",
+    "test:local-mind-browser": "node tests/browser/ap03.mjs",
+    "test:performance-browser": "node tests/browser/ap09.mjs",
+    "test:local-mind": "node --test packages/local-mind/test/*.test.js",
+    "test:latent-zone": "node --test packages/latent-zone/test/*.test.js",
+    "test:latent-zone-scenarios": "node tests/latent-zone/ap20.mjs",
+    "test:latent-zone-world-core-wasm": "node tests/wasm/ap20-latent-zone.mjs",
+    "test:memory": "node --test packages/memory-graph/test/*.test.js",
+    "test:memory-browser": "node tests/browser/ap17.mjs",
+    "test:memory-scenarios": "node tests/memory/ap17.mjs",
+    "test:mystery": "node --test packages/mystery-fabric/test/*.test.js",
+    "test:mystery-scenarios": "node tests/mystery/ap20.mjs",
+    "test:mystery-world-core-wasm": "node tests/wasm/ap20.mjs",
+    "test:offline": "node --test packages/offline-runtime/test/*.test.js",
+    "test:offline-browser": "node tests/browser/ap11.mjs",
+    "test:persona": "node --test packages/persona-core/test/*.test.js",
+    "test:persona-browser": "node tests/browser/ap18.mjs",
+    "test:persona-scenarios": "node tests/persona/ap18.mjs",
+    "test:pages-local": "node --test tests/pages/*.test.mjs",
+    "test:pages-browser": "node tests/browser/ap15-local.mjs",
+    "test:privacy-network": "node --test packages/privacy-network/test/*.test.js",
+    "test:privacy-network-browser": "node tests/browser/ap10.mjs",
+    "test:public-discourse": "node --test packages/public-discourse/test/*.test.js",
+    "test:society-scenarios": "node tests/society/ap21.mjs",
+    "test:society-browser": "node tests/browser/ap21.mjs",
+    "test:unit": "npm run test:identity && npm run test:local-mind && npm run test:memory && npm run test:persona && npm run test:capability && npm run test:offline && npm run test:privacy-network && npm run test:public-discourse && npm run test:companion && npm run test:engagement && npm run test:fiction-boundary && npm run test:mystery && npm run test:latent-zone && npm run test:world-sync",
+    "test:world-sync": "node --test packages/world-sync/test/*.test.js",
+    "test:world-sync-browser": "node tests/browser/ap05.mjs",
+    "test:serverless": "node scripts/verify-serverless.mjs",
+    "test:world-core-wasm": "npm run build:wasm && node tests/wasm/ap04.mjs"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=20.19"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "4.2.0"
+  },
+  "devDependencies": {
+    "playwright": "1.62.1"
+  },
+  "overrides": {
+    "@huggingface/transformers": {
+      "sharp": "0.35.0",
+      "onnxruntime-node": {
+        "adm-zip": "0.6.0"
+      }
+    }
   },
   "license": "Apache-2.0"
 }

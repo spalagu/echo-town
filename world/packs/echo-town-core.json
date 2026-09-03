@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "packId": "echo-town-core",
+  "title": "回声镇核心地点",
+  "license": "CC-BY-4.0",
+  "attribution": {
+    "author": "Echo Town contributors",
+    "source": "项目原创",
+    "modified": false
+  },
+  "entries": [
+    {
+      "id": "old-clocktower",
+      "kind": "place",
+      "title": "旧钟楼",
+      "summary": "钟停在一个无人记得的时刻；雨夜是否会多响一次，只作为可观察传闻的开端。",
+      "observableFacts": [
+        "钟面停在固定时刻",
+        "雨夜偶尔有人声称听见额外钟声"
+      ],
+      "actionAffordances": [
+        "observe_clock",
+        "listen_in_rain",
+        "share_claim"
+      ],
+      "resourceRules": []
+    }
+  ]
+}

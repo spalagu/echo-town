@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "packType": "mystery-seed",
+  "id": "third-shadow",
+  "title": "第三道影子",
+  "license": "CC-BY-4.0",
+  "attribution": { "author": "spalagu", "source": "Echo Town 原创世界内容", "modified": false },
+  "clueFragments": [
+    { "schemaVersion": 1, "id": "late-shadow", "sourceEventId": "event-late-shadow", "observedPhenomenon": "少数居民声称钟声停下后，墙面的影子比人晚了一瞬才静止。", "subjects": ["old-clocktower", "wall-shadows"], "visibilityRule": { "kind": "place", "anchorId": "old-clocktower", "minimumTrust": 0 }, "reliabilityHint": "contested" },
+    { "schemaVersion": 1, "id": "unlit-outline", "sourceEventId": "event-unlit-outline", "observedPhenomenon": "一枚无灯芯的灯扣放在暗处时，边缘偶尔显得比周围更亮。", "subjects": ["blank-lantern-clasp", "darkness"], "visibilityRule": { "kind": "encounter", "anchorId": "store-room", "minimumTrust": 0 }, "reliabilityHint": "unknown" },
+    { "schemaVersion": 1, "id": "paired-footsteps", "sourceEventId": "event-paired-footsteps", "observedPhenomenon": "夜巡者记录过两组脚步回声，同行者却只记得一组；记录没有写下判断。", "subjects": ["night-watch", "footsteps"], "visibilityRule": { "kind": "relationship", "anchorId": "night-watch", "minimumTrust": 50 }, "reliabilityHint": "corroborated" },
+    { "schemaVersion": 1, "id": "shade-angle", "sourceEventId": "event-shade-angle", "observedPhenomenon": "市场遮棚换过位置后，有一道短影仍在旧角度出现了两晚，随后消失。", "subjects": ["river-market", "shade-cloth"], "visibilityRule": { "kind": "public", "anchorId": "river-market", "minimumTrust": 0 }, "reliabilityHint": "contested" }
+  ],
+  "artifacts": [
+    {
+      "schemaVersion": 1,
+      "itemId": "blank-lantern-clasp",
+      "observableActions": ["cover_briefly", "carry_at_dusk", "align_with_shadow", "pass_in_silence"],
+      "conditionRules": [
+        { "id": "dusk-outline", "pathId": "dusk-alignment", "acceptedActions": ["carry_at_dusk", "align_with_shadow"], "observedFragmentIds": ["late-shadow", "shade-angle"], "worldSignals": ["light:long-dusk"], "minimumWitnesses": 1 },
+        { "id": "silent-outline", "pathId": "silence-and-pair", "acceptedActions": ["cover_briefly", "pass_in_silence"], "observedFragmentIds": ["unlit-outline", "paired-footsteps"], "worldSignals": ["sound:quiet-hour"], "minimumWitnesses": 2 }
+      ],
+      "boundedEffects": [
+        { "id": "outline-delay", "pathId": "dusk-alignment", "kind": "observation_pulse", "magnitude": 22, "durationTicks": 3 },
+        { "id": "clasp-warmth", "pathId": "silence-and-pair", "kind": "artifact_resonance", "magnitude": 16, "durationTicks": 6 }
+      ],
+      "feedbackClass": "ambiguous"
+    }
+  ],
+  "actionAffordances": ["observe", "compare", "listen", "share_claim", "question", "conceal", "experiment", "withdraw"]
+}

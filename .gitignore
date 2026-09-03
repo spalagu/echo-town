@@ -1,5 +1,9 @@
 node_modules/
 dist/
 target/
+crates/world-core/pkg/
+.echo-town-evidence/
+.world-dist/
+apps/web/public/world-content-manifest.json
 .DS_Store
 *.log

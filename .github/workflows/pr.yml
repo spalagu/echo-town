@@ -1,0 +1,142 @@
+name: pull-request
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}-${{ github.workflow }}
+  cancel-in-progress: true
+
+env:
+  CI: "true"
+  SOURCE_COMMIT: ${{ github.event.pull_request.head.sha }}
+
+jobs:
+  quality:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.20.0
+      - run: npm ci --ignore-scripts --registry=https://registry.npmjs.org
+      - run: npm run ci:workflow
+      - run: npm run test:unit
+      - run: npm run test:serverless
+      - run: npm run test:society-scenarios
+      - run: npm run test:mystery-scenarios
+      - run: npm run test:latent-zone-scenarios
+
+  world-schema:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.20.0
+      - run: npm ci --ignore-scripts --registry=https://registry.npmjs.org
+      - run: npm run ci:world-schema
+
+  deterministic-replay:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+      - run: rustup toolchain install 1.95.0 --profile minimal --no-self-update
+      - run: rustup default 1.95.0
+      - run: cargo test --workspace --release --locked
+
+  asset-budget:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.20.0
+      - run: npm ci --ignore-scripts --registry=https://registry.npmjs.org
+      - run: npm run ci:asset-budget
+
+  license-policy:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.20.0
+      - run: npm ci --ignore-scripts --registry=https://registry.npmjs.org
+      - run: npm run ci:license-policy
+        env:
+          GITHUB_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          GITHUB_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+
+  content-safety:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.20.0
+      - run: npm ci --ignore-scripts --registry=https://registry.npmjs.org
+      - run: npm run ci:content-safety
+      - run: npm run test:fiction-boundary-scenarios
+
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24.20.0
+      - run: rustup toolchain install 1.95.0 --profile minimal --no-self-update
+      - run: rustup default 1.95.0
+      - run: rustup target add wasm32-unknown-unknown
+      - run: cargo install wasm-bindgen-cli --version 0.2.126 --locked
+      - run: npm ci --ignore-scripts --registry=https://registry.npmjs.org
+      - run: npx playwright install --with-deps chromium
+      - run: npm run build
+      - run: node scripts/pages-release.mjs write apps/web/dist --commit "$SOURCE_COMMIT"
+      - run: node scripts/pages-release.mjs verify apps/web/dist --commit "$SOURCE_COMMIT"
+      - run: npm run test:pages-browser
+      - run: npm run test:mystery-world-core-wasm
+      - run: npm run test:latent-zone-world-core-wasm
+      - run: npm run test:companion-browser
+      - run: npm run test:engagement-browser
+      - run: npm run test:society-browser
+      - run: npm run test:fiction-boundary-browser

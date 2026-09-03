@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "packType": "situation-seed",
+  "id": "late-traveler",
+  "title": "闭市后到来的旅人",
+  "license": "CC-BY-4.0",
+  "attribution": { "author": "Echo Town contributors", "source": "项目原创", "modified": false },
+  "trigger": { "kind": "arrival", "startTick": 15, "durationTicks": 22, "intensity": 48 },
+  "observations": [
+    { "fact": "旅人只询问旧地名，不解释来意", "visibility": "public", "tags": ["arrival", "memory"] },
+    { "fact": "旅人的地图在河湾处有一处新折痕", "visibility": "local", "tags": ["map", "uncertain"] }
+  ],
+  "resourceDeltas": [{ "resourceId": "food", "amount": -3, "expiresAfterTicks": 12 }],
+  "actionAffordances": ["welcome", "question", "observe", "share_claim", "withdraw"]
+}

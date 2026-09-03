@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "packType": "mystery-seed",
+  "id": "tideglass-drift",
+  "title": "潮玻璃的漂移",
+  "license": "CC-BY-4.0",
+  "attribution": { "author": "spalagu", "source": "Echo Town 原创世界内容", "modified": false },
+  "clueFragments": [
+    { "schemaVersion": 1, "id": "motes-after-fog", "sourceEventId": "event-motes-after-fog", "observedPhenomenon": "薄雾散去后，温室外沿有时会留下半透明微粒，位置与风向并不总是一致。", "subjects": ["glass-greenhouse", "pale-motes"], "visibilityRule": { "kind": "place", "anchorId": "glass-greenhouse", "minimumTrust": 0 }, "reliabilityHint": "corroborated" },
+    { "schemaVersion": 1, "id": "riverline-shift", "sourceEventId": "event-riverline-shift", "observedPhenomenon": "河边石阶的湿线偶尔在水位未变时移动一小段，第二天又恢复原状。", "subjects": ["river-steps", "waterline"], "visibilityRule": { "kind": "public", "anchorId": "river-market", "minimumTrust": 0 }, "reliabilityHint": "contested" },
+    { "schemaVersion": 1, "id": "vial-clouding", "sourceEventId": "event-vial-clouding", "observedPhenomenon": "磨花的小玻璃瓶在接近某些积水时会变得更浑浊，但没有人能稳定复现。", "subjects": ["clouded-vial", "standing-water"], "visibilityRule": { "kind": "encounter", "anchorId": "river-path", "minimumTrust": 0 }, "reliabilityHint": "unknown" },
+    { "schemaVersion": 1, "id": "gardener-dispute", "sourceEventId": "event-gardener-dispute", "observedPhenomenon": "两位温室照料者对微粒最早出现的日期记忆相反，各自都留下了当天的工作记录。", "subjects": ["greenhouse-keepers", "work-notes"], "visibilityRule": { "kind": "relationship", "anchorId": "greenhouse-keepers", "minimumTrust": 45 }, "reliabilityHint": "contested" }
+  ],
+  "artifacts": [
+    {
+      "schemaVersion": 1,
+      "itemId": "clouded-vial",
+      "observableActions": ["hold_to_mist", "float_briefly", "compare_reflections", "share_between"],
+      "conditionRules": [
+        { "id": "mist-trace", "pathId": "mist-and-record", "acceptedActions": ["hold_to_mist", "compare_reflections"], "observedFragmentIds": ["motes-after-fog", "gardener-dispute"], "worldSignals": ["weather:morning-fog"], "minimumWitnesses": 1 },
+        { "id": "river-trace", "pathId": "water-and-witness", "acceptedActions": ["float_briefly", "share_between"], "observedFragmentIds": ["riverline-shift", "vial-clouding"], "worldSignals": ["water:still-pool"], "minimumWitnesses": 2 }
+      ],
+      "boundedEffects": [
+        { "id": "mote-glimmer", "pathId": "mist-and-record", "kind": "observation_pulse", "magnitude": 20, "durationTicks": 5 },
+        { "id": "vial-drift", "pathId": "water-and-witness", "kind": "artifact_resonance", "magnitude": 28, "durationTicks": 2 }
+      ],
+      "feedbackClass": "faint"
+    }
+  ],
+  "actionAffordances": ["observe", "compare", "listen", "share_claim", "question", "trade", "experiment", "withdraw"]
+}

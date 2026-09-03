@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://spalagu.github.io/echo-town/schemas/situation-seed-v1.schema.json",
+  "title": "Echo Town SituationSeed v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "packType", "id", "title", "license", "attribution", "trigger", "observations", "resourceDeltas", "actionAffordances"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "packType": { "const": "situation-seed" },
+    "id": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,63}$" },
+    "title": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "license": { "const": "CC-BY-4.0" },
+    "attribution": { "type": "object", "additionalProperties": false, "required": ["author", "source", "modified"], "properties": { "author": { "type": "string", "minLength": 1, "maxLength": 120 }, "source": { "type": "string", "minLength": 1, "maxLength": 200 }, "modified": { "type": "boolean" } } },
+    "trigger": { "type": "object", "additionalProperties": false, "required": ["kind", "startTick", "durationTicks", "intensity"], "properties": { "kind": { "enum": ["weather", "scarcity", "arrival", "malfunction", "signal"] }, "startTick": { "type": "integer", "minimum": 0, "maximum": 1000000 }, "durationTicks": { "type": "integer", "minimum": 1, "maximum": 10000 }, "intensity": { "type": "integer", "minimum": 1, "maximum": 100 } } },
+    "observations": { "type": "array", "minItems": 1, "maxItems": 16, "items": { "type": "object", "additionalProperties": false, "required": ["fact", "visibility", "tags"], "properties": { "fact": { "type": "string", "minLength": 1, "maxLength": 320 }, "visibility": { "enum": ["public", "local"] }, "tags": { "type": "array", "minItems": 1, "maxItems": 6, "uniqueItems": true, "items": { "type": "string", "minLength": 1, "maxLength": 32 } } } } },
+    "resourceDeltas": { "type": "array", "minItems": 1, "maxItems": 12, "items": { "type": "object", "additionalProperties": false, "required": ["resourceId", "amount", "expiresAfterTicks"], "properties": { "resourceId": { "type": "string", "pattern": "^[a-z][a-z0-9-]{2,63}$" }, "amount": { "type": "integer", "minimum": -1000, "maximum": 1000, "not": { "const": 0 } }, "expiresAfterTicks": { "type": "integer", "minimum": 1, "maximum": 10000 } } } },
+    "actionAffordances": { "type": "array", "minItems": 3, "maxItems": 16, "uniqueItems": true, "items": { "type": "string", "pattern": "^[a-z][a-z0-9_]{1,47}$" } }
+  }
+}

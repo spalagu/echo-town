@@ -1,0 +1,17 @@
+[workspace]
+members = ["crates/protocol", "crates/world-core"]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "Apache-2.0"
+authors = ["spalagu <m.spalagu@gmail.com>"]
+
+[workspace.dependencies]
+ed25519-dalek = "2.2.0"
+hex = "0.4.3"
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.143"
+sha2 = "0.10.9"
+wasm-bindgen = "=0.2.126"
