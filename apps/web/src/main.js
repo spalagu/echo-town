@@ -369,7 +369,13 @@ async function bootstrap() {
   const offlineStore = new IndexedDbOfflineStore();
   const companionStore = new IndexedDbCompanionStore();
   const worldSyncStore = new IndexedDbWorldSyncStore();
-  const [identity, manifest, worldContent, publicNodes, memorySnapshot, offlineSnapshot, companionSnapshot, worldSyncSnapshot, offlineWorker] = await Promise.all([
+  const initialOfflineWorker = {
+    supported: "serviceWorker" in navigator,
+    controlled: Boolean(navigator.serviceWorker?.controller),
+    registration: null,
+  };
+  const offlineWorkerPromise = registerOfflineWorker();
+  const [identity, manifest, worldContent, publicNodes, memorySnapshot, offlineSnapshot, companionSnapshot, worldSyncSnapshot] = await Promise.all([
     loadOrCreateIdentity(new IndexedDbVaultStore()),
     fetch("./version-manifest.json").then((response) => {
       if (!response.ok) throw new Error("版本清单不可用");
@@ -387,7 +393,6 @@ async function bootstrap() {
     offlineStore.get(),
     companionStore.get(),
     worldSyncStore.get(),
-    registerOfflineWorker(),
   ]);
   applyWorldContent(worldContent);
   const fictionBoundary = validateFictionBoundary(worldContent.fictionBoundary);
@@ -539,7 +544,7 @@ async function bootstrap() {
   if (forceRules) await localMind.forceRules();
   const localMindStatus = await localMind.status();
   document.querySelector("#mind-status").textContent = `角色心智：${localMindStatus.mode} · ${localMindStatus.execution} · 正在构造首次观察……`;
-  const offlineLabel = offlineWorker.controlled ? "离线缓存就绪" : "离线缓存未接管";
+  let offlineLabel = initialOfflineWorker.controlled ? "离线缓存就绪" : "离线缓存准备中";
   document.querySelector("#runtime-status").textContent = `本地身份、AI Worker、Wasm 核心与${offlineLabel} · 正在接通持续自主生活循环 · ${manifest.version} · ${manifest.assets.length} 项静态资源`;
 
   const game = new Phaser.Game({
@@ -572,7 +577,7 @@ async function bootstrap() {
     capabilityController,
     offlineQueue,
     offlineStore,
-    offlineWorker,
+    offlineWorker: initialOfflineWorker,
     privacyNetwork,
     publicNodes,
     worldSync,
@@ -627,6 +632,12 @@ async function bootstrap() {
   ready.autonomousLife = Object.freeze({ snapshot: () => autonomousLife.snapshot() });
   window.__echoTownReady = ready;
   autonomousLife.start();
+  void offlineWorkerPromise.then((offlineWorker) => {
+    ready.offlineWorker = offlineWorker;
+    offlineLabel = offlineWorker.controlled ? "离线缓存就绪" : "离线缓存未接管";
+  }).catch(() => {
+    offlineLabel = initialOfflineWorker.controlled ? "离线缓存就绪" : "离线缓存未接管";
+  });
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) autonomousLife.stop();
     else autonomousLife.start();
