@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { createServer } from "node:net";
+import path from "node:path";
 import { chromium } from "playwright";
 
 const EXPECTED_NOTICE = "回声镇、其中的角色与事件均为虚构 AI 世界，不对应、仿冒或预测任何真实个人；如有相似，纯属巧合。";
@@ -18,7 +19,8 @@ async function availablePort() {
 }
 
 const port = await availablePort();
-const server = spawn("npm", ["run", "preview", "--workspace", "@echo-town/web", "--", "--port", String(port), "--strictPort"], {
+const server = spawn(process.execPath, [path.resolve("node_modules/vite/bin/vite.js"), "preview", "--host", "127.0.0.1", "--port", String(port), "--strictPort"], {
+  cwd: path.resolve("apps/web"),
   stdio: ["ignore", "pipe", "pipe"],
   env: process.env,
 });
@@ -42,7 +44,7 @@ try {
   const browser = await chromium.launch({ headless: true });
   const page = await browser.newPage();
   await page.goto(`http://127.0.0.1:${port}/`, { waitUntil: "networkidle" });
-  await page.waitForFunction(() => Boolean(window.__echoTownReady?.fictionBoundary));
+  await page.waitForFunction(() => Boolean(window.__echoTownFictionReady?.fictionBoundary));
   const report = await page.evaluate(() => {
     const element = document.querySelector("#fiction-boundary");
     const style = getComputedStyle(element);
@@ -51,7 +53,7 @@ try {
       visible: style.display !== "none" && style.visibility !== "hidden" && Number(style.opacity) !== 0
         && element.getBoundingClientRect().width > 0 && element.getBoundingClientRect().height > 0,
       role: element.getAttribute("role"),
-      declaration: window.__echoTownReady.fictionBoundary,
+      declaration: window.__echoTownFictionReady.fictionBoundary,
       bootError: window.__echoTownBootError?.message ?? null,
     };
   });
@@ -81,7 +83,7 @@ try {
       element.removeAttribute("aria-hidden");
       element.hidden = false;
       mutate();
-      try { window.__echoTownReady.verifyFictionBoundary(); return "green"; } catch { return "red"; }
+      try { window.__echoTownFictionReady.verifyFictionBoundary(); return "green"; } catch { return "red"; }
     });
   });
   assert.deepEqual(visibilityMutations, ["red", "red", "red", "red", "red", "red", "red", "red"]);
@@ -94,7 +96,7 @@ try {
   report.visibilityMutations = visibilityMutations;
   const encodedUiAttack = await page.evaluate(() => {
     document.body.insertAdjacentHTML("beforeend", '<aside id="encoded-ui-attack">&#x8FD9;&#x4E2A;&#x89D2;&#x8272;&#x5C31;&#x662F;&#x73B0;&#x5B9E;&#x4E2D;&#x7684;&#x4E2A;&#x4EBA;&#x3002;</aside>');
-    try { window.__echoTownReady.verifyFictionUi(); return "green"; } catch { return "red"; }
+    try { window.__echoTownFictionReady.verifyFictionUi(); return "green"; } catch { return "red"; }
   });
   assert.equal(encodedUiAttack, "red");
   await page.locator("#encoded-ui-attack").evaluate((element) => element.remove());

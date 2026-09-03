@@ -365,7 +365,11 @@ async function bootstrap() {
   ]);
   applyWorldContent(worldContent);
   const fictionBoundary = validateFictionBoundary(worldContent.fictionBoundary);
-  assertVisibleFictionNotice(document.querySelector("#fiction-boundary"));
+  const verifyFictionBoundary = () => assertVisibleFictionNotice(document.querySelector("#fiction-boundary"));
+  const verifyFictionUi = () => assessFictionalContent(document.body.innerText, "浏览器可见 UI");
+  verifyFictionBoundary();
+  verifyFictionUi();
+  window.__echoTownFictionReady = { fictionBoundary, verifyFictionBoundary, verifyFictionUi };
   const socialFoundation = {
     initialStatePacks: worldContent.packs.filter((pack) => pack.packType === "initial-state").length,
     situationSeeds: worldContent.packs.filter((pack) => pack.packType === "situation-seed").length,
@@ -537,12 +541,11 @@ async function bootstrap() {
   });
   renderEngagementHooks(engagementState);
   setupCompanionUi(companion, companionStore, refreshEngagement);
-  const verifyFictionUi = () => assessFictionalContent(document.body.innerText, "浏览器可见 UI");
   verifyFictionUi();
   window.__echoTownReady = {
     identity,
     fictionBoundary,
-    verifyFictionBoundary: () => assertVisibleFictionNotice(document.querySelector("#fiction-boundary")),
+    verifyFictionBoundary,
     verifyFictionUi,
     manifest,
     worldContent,
