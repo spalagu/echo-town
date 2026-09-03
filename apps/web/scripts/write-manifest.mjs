@@ -30,7 +30,7 @@ for (const path of paths.sort()) {
 
 await writeFile(new URL("version-manifest.json", rootUrl), `${JSON.stringify({
   version: "m2-foundation.1",
-  sourceCommit: process.env.GITHUB_SHA || process.env.SOURCE_COMMIT || "local-uncommitted",
+  sourceCommit: process.env.SOURCE_COMMIT || process.env.GITHUB_SHA || "local-uncommitted",
   assets,
 }, null, 2)}\n`);
 console.log(`版本清单已生成：${assets.length} 项静态资源`);

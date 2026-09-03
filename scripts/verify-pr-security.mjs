@@ -43,6 +43,12 @@ export function validateCodeowners(text) {
   return problems;
 }
 
+export function validateVersionManifestWriter(text) {
+  return /sourceCommit:\s*process\.env\.SOURCE_COMMIT\s*\|\|\s*process\.env\.GITHUB_SHA\s*\|\|\s*"local-uncommitted"/u.test(text)
+    ? []
+    : ["version-manifest 必须优先绑定显式 SOURCE_COMMIT，不能优先采用 GitHub 合成 merge SHA"];
+}
+
 export function validateRuleset(value) {
   const problems = [];
   if (value?.target !== "branch" || value?.enforcement !== "active" || value?.bypass_actors?.length !== 0) problems.push("Ruleset 必须 active 且无 bypass actor");
@@ -61,15 +67,17 @@ export function validateRuleset(value) {
 }
 
 export async function verifyRepository(root) {
-  const [workflow, codeowners, rulesetText] = await Promise.all([
+  const [workflow, codeowners, rulesetText, versionManifestWriter] = await Promise.all([
     readFile(path.join(root, ".github/workflows/pr.yml"), "utf8"),
     readFile(path.join(root, ".github/CODEOWNERS"), "utf8"),
     readFile(path.join(root, ".github/rulesets/main.json"), "utf8"),
+    readFile(path.join(root, "apps/web/scripts/write-manifest.mjs"), "utf8"),
   ]);
   return [
     ...validateWorkflow(workflow),
     ...validateCodeowners(codeowners),
     ...validateRuleset(JSON.parse(rulesetText)),
+    ...validateVersionManifestWriter(versionManifestWriter),
   ];
 }
 
